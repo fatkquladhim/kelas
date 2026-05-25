@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useCallback } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { LoginPage } from '@/components/LoginPage'
@@ -21,6 +21,7 @@ import { StudentProgress } from '@/components/student/StudentProgress'
 import { RoisDashboard } from '@/components/rois/RoisDashboard'
 import { RoisMembers } from '@/components/rois/RoisMembers'
 import { Loader2 } from 'lucide-react'
+import type { ClassInfo, ClassMemberInfo } from '@/lib/store'
 
 function PageContent() {
   const { currentPage } = useAppStore()
@@ -58,12 +59,21 @@ function PageContent() {
 }
 
 export default function Home() {
-  const { user, currentPage, setUser, logout } = useAppStore()
+  const { user, currentPage, setUser, setSelectedKelas, setClassMembers, logout } = useAppStore()
   const [authChecked, setAuthChecked] = useState(false)
+  const [classDataLoaded, setClassDataLoaded] = useState(false)
 
+  // Check auth on mount
   useEffect(() => {
     checkAuth()
   }, [])
+
+  // Load class data once user is authenticated
+  useEffect(() => {
+    if (user && !classDataLoaded) {
+      loadClassData()
+    }
+  }, [user, classDataLoaded])
 
   const checkAuth = async () => {
     try {
@@ -72,15 +82,13 @@ export default function Home() {
         const data = await res.json()
         if (data.user && data.user.isActive) {
           setUser(data.user)
-          // Set default page based on role
-          if (data.user.role === 'ADMIN' && (currentPage === 'login' || currentPage === 'register')) {
-            useAppStore.getState().setCurrentPage('admin-dashboard')
-          } else if (data.user.role !== 'ADMIN' && (currentPage === 'login' || currentPage === 'register')) {
-            useAppStore.getState().setCurrentPage('student-dashboard')
+          if (currentPage === 'login' || currentPage === 'register') {
+            const page = data.user.role === 'ADMIN' ? 'admin-dashboard' : 'student-dashboard'
+            useAppStore.getState().setCurrentPage(page)
           }
         } else if (data.user && !data.user.isActive) {
-          // Account not active
           logout()
+          useAppStore.getState().setCurrentPage('login')
         }
       } else {
         logout()
@@ -89,6 +97,45 @@ export default function Home() {
       logout()
     } finally {
       setAuthChecked(true)
+    }
+  }
+
+  const loadClassData = async () => {
+    if (!user) return
+    try {
+      // Fetch all classes (admin endpoint works for all authenticated users)
+      const kelasRes = await fetch('/api/admin/kelas')
+      if (kelasRes.ok) {
+        const kelasData = await kelasRes.json()
+        const classes: ClassInfo[] = kelasData.kelas || []
+
+        if (classes.length > 0) {
+          // Auto-select first class
+          const firstClass = classes[0]
+          setSelectedKelas(firstClass)
+
+          // Load class members
+          const membersRes = await fetch(`/api/admin/kelas/${firstClass.id}/members`)
+          if (membersRes.ok) {
+            const membersData = await membersRes.json()
+            const members: ClassMemberInfo[] = (membersData.members || []).map(
+              (m: { id: string; userId: string; user: { name: string; email: string }; role: string; kelasId: string }) => ({
+                id: m.id,
+                userId: m.userId,
+                userName: m.user.name,
+                userEmail: m.user.email,
+                role: m.role as ClassMemberInfo['role'],
+                kelasId: m.kelasId,
+              })
+            )
+            setClassMembers(members)
+          }
+        }
+      }
+    } catch {
+      // silent - class data loading is not critical
+    } finally {
+      setClassDataLoaded(true)
     }
   }
 

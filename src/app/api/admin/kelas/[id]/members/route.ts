@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAdmin } from '@/lib/auth'
+import { requireAuth, requireAdmin } from '@/lib/auth'
 
 type RouteContext = {
   params: Promise<{ id: string }>
@@ -11,7 +11,7 @@ export async function GET(
   context: RouteContext
 ) {
   try {
-    const auth = await requireAdmin(request)
+    const auth = await requireAuth(request)
     if (auth instanceof Response) return auth
 
     const { id } = await context.params

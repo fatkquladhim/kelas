@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from 'react'
 import { useAppStore, type ClassInfo } from '@/lib/store'
-import { useAppContext } from '@/app/layout'
 import {
   Select,
   SelectContent,
@@ -14,20 +13,17 @@ import { Loader2 } from 'lucide-react'
 
 export function ClassSelector() {
   const { selectedKelas, setSelectedKelas, setClassMembers } = useAppStore()
-  const { token } = useAppContext()
   const [classes, setClasses] = useState<ClassInfo[]>([])
   const [loading, setLoading] = useState(true)
 
   useEffect(() => {
     fetchUserClasses()
-  }, [token])
+  }, [])
 
   const fetchUserClasses = async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/admin/kelas', {
-        headers: { Authorization: `Bearer ${token}` },
-      })
+      const res = await fetch('/api/admin/kelas')
       if (res.ok) {
         const data = await res.json()
         setClasses(data.kelas || [])
@@ -45,9 +41,7 @@ export function ClassSelector() {
 
     if (kelas) {
       try {
-        const res = await fetch(`/api/admin/kelas/${kelas.id}/members`, {
-          headers: { Authorization: `Bearer ${token}` },
-        })
+        const res = await fetch(`/api/admin/kelas/${kelas.id}/members`)
         if (res.ok) {
           const data = await res.json()
           setClassMembers(
@@ -73,12 +67,12 @@ export function ClassSelector() {
     return (
       <div className="flex items-center gap-2">
         <Loader2 className="h-4 w-4 animate-spin text-emerald-600" />
-        <span className="text-sm text-slate-500">Memuat kelas...</span>
+        <span className="text-sm text-slate-500">Memuat...</span>
       </div>
     )
   }
 
-  if (classes.length <= 1) return null
+  if (classes.length === 0) return null
 
   return (
     <Select value={selectedKelas?.id || ''} onValueChange={handleSelect}>

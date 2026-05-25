@@ -5,8 +5,9 @@ import { ClassSelector } from '@/components/shared/ClassSelector'
 import { Button } from '@/components/ui/button'
 import { Avatar, AvatarFallback } from '@/components/ui/avatar'
 import { Sheet, SheetContent, SheetTrigger } from '@/components/ui/sheet'
+import { Badge } from '@/components/ui/badge'
 import { Menu } from 'lucide-react'
-import { SidebarContent } from '@/components/Sidebar'
+import { SidebarContent, getRoleLabel, getRoleBadgeColor } from '@/components/Sidebar'
 
 const pageTitles: Record<string, string> = {
   'admin-dashboard': 'Dashboard Admin',
@@ -16,16 +17,17 @@ const pageTitles: Record<string, string> = {
   'admin-syllabus': 'Silabus',
   'admin-schedule': 'Jadwal Perkuliahan',
   'admin-roles': 'Pengaturan Role',
-  'student-dashboard': 'Dashboard Mahasantri',
+  'student-dashboard': 'Dashboard',
   'student-schedule': 'Jadwal Kuliah',
   'student-syllabus': 'Silabus Kuliah',
   'student-progress': 'Progres Materi',
-  'rois-dashboard': 'Dashboard Rois A\'m',
+  'rois-dashboard': "Dashboard Rois A'm",
   'rois-members': 'Pengaturan Anggota',
 }
 
 export function Header() {
-  const { user, currentPage } = useAppStore()
+  const { user, currentPage, isAdmin, getMyRole } = useAppStore()
+  const myRole = getMyRole()
 
   return (
     <header className="sticky top-0 z-40 flex h-16 items-center gap-4 border-b border-slate-200 bg-white/95 backdrop-blur px-4 lg:px-6">
@@ -56,7 +58,15 @@ export function Header() {
       <div className="flex items-center gap-2">
         <div className="hidden sm:block text-right">
           <p className="text-sm font-medium text-slate-700">{user?.name}</p>
-          <p className="text-xs text-slate-500">{user?.role === 'ADMIN' ? 'Administrator' : 'Mahasantri'}</p>
+          {isAdmin() ? (
+            <p className="text-xs text-slate-500">Administrator</p>
+          ) : myRole && myRole !== 'MAHASANTRI' ? (
+            <Badge variant="secondary" className={`text-[10px] px-1.5 py-0 ${getRoleBadgeColor(myRole)}`}>
+              {getRoleLabel(myRole)}
+            </Badge>
+          ) : (
+            <p className="text-xs text-slate-500">Mahasantri</p>
+          )}
         </div>
         <Avatar className="h-9 w-9">
           <AvatarFallback className="bg-emerald-600 text-white text-sm">
