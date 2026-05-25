@@ -1,0 +1,130 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "sqlite"
+  url      = env("DATABASE_URL")
+}
+
+// Users of the system
+model User {
+  id        String   @id @default(cuid())
+  name      String
+  email     String   @unique
+  password  String
+  role      String   @default("MAHASANTRI") // ADMIN, MAHASANTRI
+  isActive  Boolean  @default(false) // Admin must confirm registration
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  classMemberships ClassMember[]
+  materialAchievements MaterialAchievement[]
+}
+
+// Classes / Kelas
+model Kelas {
+  id          String   @id @default(cuid())
+  name        String
+  semester    Int
+  tahunAjaran String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  members    ClassMember[]
+  schedules  Jadwal[]
+  pertemuanLogs PertemuanLog[]
+}
+
+// Class membership with roles
+model ClassMember {
+  id        String   @id @default(cuid())
+  kelasId   String
+  userId    String
+  role      String   @default("MAHASANTRI") // MAHASANTRI, ROIS_AM, KETUA_FAN_ILMU, KETUA_KELOMPOK, SEKRETARIS, BENDAHARA
+  createdAt DateTime @default(now())
+
+  kelas Kelas @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([kelasId, userId])
+}
+
+// Courses / Mata Kuliah
+model MataKuliah {
+  id               String   @id @default(cuid())
+  code             String
+  name             String
+  sks              Int      @default(2)
+  semester         Int
+  programStudi     String   @default("")
+  standarKompetensi String  @default("")
+  deskripsi        String   @default("")
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
+
+  syllabus  Silabus[]
+  schedules Jadwal[]
+}
+
+// Syllabus items
+model Silabus {
+  id          String @id @default(cuid())
+  mataKuliahId String
+  pertemuan   Int
+  materiPokok String @default("")
+  subMateri   String @default("")
+  referensi   String @default("")
+
+  mataKuliah  MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+
+  achievements   MaterialAchievement[]
+  pertemuanLogs PertemuanLog[]
+}
+
+// Weekly Schedule
+model Jadwal {
+  id          String @id @default(cuid())
+  mataKuliahId String
+  kelasId     String
+  hari        String   // AHAD, SENIN, SELASA, RABU, KAMIS, JUMAT, SABTU
+  waktu       String   // PAGI, SORE, MALAM
+
+  mataKuliah MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  kelas      Kelas      @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+
+  @@unique([kelasId, hari, waktu])
+}
+
+// Meeting logs - track which meetings have been held
+model PertemuanLog {
+  id          String   @id @default(cuid())
+  silabusId   String
+  kelasId     String
+  tanggal     DateTime
+  status      String   @default("BELUM") // SELESAI, BELUM, DITUNDA, ABSEN
+  catatan     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  silabus Silabus @relation(fields: [silabusId], references: [id], onDelete: Cascade)
+  kelas   Kelas   @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+}
+
+// Material achievement filled by Ketua Fan Ilmu
+model MaterialAchievement {
+  id             String   @id @default(cuid())
+  silabusId      String
+  kelasId        String
+  userId         String   // Ketua Fan Ilmu who filled this
+  tanggal        DateTime
+  persentase     Int      @default(0) // 0-100
+  deskripsi      String   @default("")
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+
+  silabus Silabus @relation(fields: [silabusId], references: [id], onDelete: Cascade)
+  user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([silabusId, kelasId, tanggal])
+}

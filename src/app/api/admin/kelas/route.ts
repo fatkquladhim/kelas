@@ -1,0 +1,60 @@
+import { NextRequest, NextResponse } from 'next/server'
+import { db } from '@/lib/db'
+import { requireAdmin } from '@/lib/auth'
+
+export async function GET(request: NextRequest) {
+  try {
+    const auth = await requireAdmin(request)
+    if (auth instanceof Response) return auth
+
+    const kelasList = await db.kelas.findMany({
+      orderBy: [{ tahunAjaran: 'desc' }, { semester: 'desc' }],
+      include: {
+        _count: {
+          select: { members: true, schedules: true, pertemuanLogs: true },
+        },
+      },
+    })
+
+    return NextResponse.json({ kelas: kelasList })
+  } catch (error) {
+    console.error('List kelas error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
+
+export async function POST(request: NextRequest) {
+  try {
+    const auth = await requireAdmin(request)
+    if (auth instanceof Response) return auth
+
+    const body = await request.json()
+    const { name, semester, tahunAjaran } = body
+
+    if (!name || !semester || !tahunAjaran) {
+      return NextResponse.json(
+        { error: 'Name, semester, and tahunAjaran are required' },
+        { status: 400 }
+      )
+    }
+
+    const kelas = await db.kelas.create({
+      data: {
+        name,
+        semester: Number(semester),
+        tahunAjaran,
+      },
+    })
+
+    return NextResponse.json({ kelas }, { status: 201 })
+  } catch (error) {
+    console.error('Create kelas error:', error)
+    return NextResponse.json(
+      { error: 'Internal server error' },
+      { status: 500 }
+    )
+  }
+}
