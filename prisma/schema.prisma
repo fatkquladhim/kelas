@@ -20,6 +20,8 @@ model User {
 
   classMemberships ClassMember[]
   materialAchievements MaterialAchievement[]
+  pengumuman Pengumuman[]
+  kehadiran Kehadiran[]
 }
 
 // Classes / Kelas
@@ -34,6 +36,7 @@ model Kelas {
   members    ClassMember[]
   schedules  Jadwal[]
   pertemuanLogs PertemuanLog[]
+  pengumuman Pengumuman[]
 }
 
 // Class membership with roles
@@ -96,6 +99,22 @@ model Jadwal {
   @@unique([kelasId, hari, waktu])
 }
 
+// Attendance records per meeting
+model Kehadiran {
+  id             String       @id @default(cuid())
+  pertemuanLogId String
+  userId         String
+  status         String        // HADIR, IZIN, SAKIT, ALPA
+  keterangan     String?
+  createdAt      DateTime     @default(now())
+  updatedAt      DateTime     @updatedAt
+
+  pertemuanLog PertemuanLog @relation(fields: [pertemuanLogId], references: [id], onDelete: Cascade)
+  user         User         @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([pertemuanLogId, userId])
+}
+
 // Meeting logs - track which meetings have been held
 model PertemuanLog {
   id          String   @id @default(cuid())
@@ -107,8 +126,9 @@ model PertemuanLog {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  silabus Silabus @relation(fields: [silabusId], references: [id], onDelete: Cascade)
-  kelas   Kelas   @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  silabus    Silabus     @relation(fields: [silabusId], references: [id], onDelete: Cascade)
+  kelas      Kelas       @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  kehadiran  Kehadiran[]
 }
 
 // Material achievement filled by Ketua Fan Ilmu
@@ -127,4 +147,20 @@ model MaterialAchievement {
   user    User    @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([silabusId, kelasId, tanggal])
+}
+
+// Announcements / Pengumuman
+model Pengumuman {
+  id        String   @id @default(cuid())
+  title     String
+  content   String
+  category  String   @default("UMUM") // UMUM, JADWAL, UJIAN, LAINNYA
+  kelasId   String?
+  authorId  String
+  isPinned  Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  kelas     Kelas?   @relation(fields: [kelasId], references: [id], onDelete: SetNull)
+  author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
 }

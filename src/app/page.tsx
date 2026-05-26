@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useState, useCallback } from 'react'
+import { useEffect, useState } from 'react'
 import { AnimatePresence, motion } from 'framer-motion'
 import { useAppStore } from '@/lib/store'
 import { LoginPage } from '@/components/LoginPage'
@@ -14,14 +14,18 @@ import { AdminMataKuliah } from '@/components/admin/AdminMataKuliah'
 import { AdminSyllabus } from '@/components/admin/AdminSyllabus'
 import { AdminSchedule } from '@/components/admin/AdminSchedule'
 import { AdminRoles } from '@/components/admin/AdminRoles'
+import { AdminAttendance } from '@/components/admin/AdminAttendance'
 import { StudentDashboard } from '@/components/student/StudentDashboard'
 import { StudentSchedule } from '@/components/student/StudentSchedule'
 import { StudentSyllabus } from '@/components/student/StudentSyllabus'
 import { StudentProgress } from '@/components/student/StudentProgress'
+import { StudentAttendance } from '@/components/student/StudentAttendance'
 import { RoisDashboard } from '@/components/rois/RoisDashboard'
 import { RoisMembers } from '@/components/rois/RoisMembers'
+import { KetuaCapaianMateri } from '@/components/ketua-fan-ilmu/KetuaCapaianMateri'
+import { AdminPengumuman } from '@/components/admin/AdminPengumuman'
+import { PengumumanList } from '@/components/student/PengumumanList'
 import { Loader2 } from 'lucide-react'
-import type { ClassInfo, ClassMemberInfo } from '@/lib/store'
 
 function PageContent() {
   const { currentPage } = useAppStore()
@@ -41,6 +45,8 @@ function PageContent() {
       return <AdminSchedule />
     case 'admin-roles':
       return <AdminRoles />
+    case 'admin-kehadiran':
+      return <AdminAttendance />
     case 'student-dashboard':
       return <StudentDashboard />
     case 'student-schedule':
@@ -49,19 +55,26 @@ function PageContent() {
       return <StudentSyllabus />
     case 'student-progress':
       return <StudentProgress />
+    case 'student-kehadiran':
+      return <StudentAttendance />
     case 'rois-dashboard':
       return <RoisDashboard />
     case 'rois-members':
       return <RoisMembers />
+    case 'ketua-capaian':
+      return <KetuaCapaianMateri />
+    case 'admin-pengumuman':
+      return <AdminPengumuman />
+    case 'pengumuman':
+      return <PengumumanList />
     default:
       return <StudentDashboard />
   }
 }
 
 export default function Home() {
-  const { user, currentPage, setUser, setSelectedKelas, setClassMembers, logout } = useAppStore()
+  const { user, currentPage, setUser, logout, loadClassesAndMembers } = useAppStore()
   const [authChecked, setAuthChecked] = useState(false)
-  const [classDataLoaded, setClassDataLoaded] = useState(false)
 
   // Check auth on mount
   useEffect(() => {
@@ -70,10 +83,10 @@ export default function Home() {
 
   // Load class data once user is authenticated
   useEffect(() => {
-    if (user && !classDataLoaded) {
-      loadClassData()
+    if (user) {
+      loadClassesAndMembers()
     }
-  }, [user, classDataLoaded])
+  }, [user])
 
   const checkAuth = async () => {
     try {
@@ -97,45 +110,6 @@ export default function Home() {
       logout()
     } finally {
       setAuthChecked(true)
-    }
-  }
-
-  const loadClassData = async () => {
-    if (!user) return
-    try {
-      // Fetch all classes (admin endpoint works for all authenticated users)
-      const kelasRes = await fetch('/api/admin/kelas')
-      if (kelasRes.ok) {
-        const kelasData = await kelasRes.json()
-        const classes: ClassInfo[] = kelasData.kelas || []
-
-        if (classes.length > 0) {
-          // Auto-select first class
-          const firstClass = classes[0]
-          setSelectedKelas(firstClass)
-
-          // Load class members
-          const membersRes = await fetch(`/api/admin/kelas/${firstClass.id}/members`)
-          if (membersRes.ok) {
-            const membersData = await membersRes.json()
-            const members: ClassMemberInfo[] = (membersData.members || []).map(
-              (m: { id: string; userId: string; user: { name: string; email: string }; role: string; kelasId: string }) => ({
-                id: m.id,
-                userId: m.userId,
-                userName: m.user.name,
-                userEmail: m.user.email,
-                role: m.role as ClassMemberInfo['role'],
-                kelasId: m.kelasId,
-              })
-            )
-            setClassMembers(members)
-          }
-        }
-      }
-    } catch {
-      // silent - class data loading is not critical
-    } finally {
-      setClassDataLoaded(true)
     }
   }
 
@@ -184,11 +158,11 @@ export default function Home() {
 
   // Main layout with sidebar
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-gradient-to-br from-slate-50 via-white to-emerald-50/30">
       <Sidebar />
       <div className="lg:pl-64">
         <Header />
-        <main className="p-4 lg:p-6">
+        <main className="p-4 lg:p-6 pb-8">
           <AnimatePresence mode="wait">
             <motion.div
               key={currentPage}

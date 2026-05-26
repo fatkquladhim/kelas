@@ -6,7 +6,7 @@ import { Badge } from '@/components/ui/badge'
 import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
 import { ScrollArea } from '@/components/ui/scroll-area'
-import { Users, GraduationCap, BookOpen, CalendarCheck, Clock, UserCheck, UserX, Loader2 } from 'lucide-react'
+import { Users, GraduationCap, BookOpen, CalendarCheck, Clock, UserCheck, UserX, Loader2, TrendingUp, Sparkles } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared/EmptyState'
 
@@ -24,6 +24,13 @@ interface PendingUser {
   role: string
   createdAt: string
 }
+
+const statCards = [
+  { key: 'totalMahasantri' as const, label: 'Total Mahasantri', icon: Users, gradient: 'from-emerald-500 to-emerald-600', bg: 'bg-emerald-50', iconBg: 'bg-emerald-100', iconColor: 'text-emerald-600', textColor: 'text-emerald-600' },
+  { key: 'kelasAktif' as const, label: 'Kelas Aktif', icon: GraduationCap, gradient: 'from-teal-500 to-teal-600', bg: 'bg-teal-50', iconBg: 'bg-teal-100', iconColor: 'text-teal-600', textColor: 'text-teal-600' },
+  { key: 'totalMataKuliah' as const, label: 'Mata Kuliah', icon: BookOpen, gradient: 'from-amber-500 to-amber-600', bg: 'bg-amber-50', iconBg: 'bg-amber-100', iconColor: 'text-amber-600', textColor: 'text-amber-600' },
+  { key: 'pertemuanHariIni' as const, label: 'Pertemuan Hari Ini', icon: CalendarCheck, gradient: 'from-violet-500 to-violet-600', bg: 'bg-violet-50', iconBg: 'bg-violet-100', iconColor: 'text-violet-600', textColor: 'text-violet-600' },
+]
 
 export function AdminDashboard() {
   const [stats, setStats] = useState<Stats | null>(null)
@@ -121,82 +128,75 @@ export function AdminDashboard() {
   if (loading) {
     return (
       <div className="space-y-6">
+        {/* Welcome skeleton */}
+        <Skeleton className="h-32 w-full rounded-2xl" />
         <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
           {[1, 2, 3, 4].map(i => (
-            <Skeleton key={i} className="h-28 rounded-xl" />
+            <Skeleton key={i} className="h-32 rounded-2xl" />
           ))}
         </div>
-        <Skeleton className="h-64 rounded-xl" />
+        <Skeleton className="h-64 rounded-2xl" />
       </div>
     )
   }
 
   return (
     <div className="space-y-6">
+      {/* Welcome Banner */}
+      <div className="relative overflow-hidden rounded-2xl bg-gradient-to-r from-emerald-600 via-emerald-600 to-teal-600 p-6 text-white">
+        <div className="absolute inset-0 opacity-10"
+          style={{
+            backgroundImage: `url("data:image/svg+xml,%3Csvg width='60' height='60' viewBox='0 0 60 60' xmlns='http://www.w3.org/2000/svg'%3E%3Cg fill='none' stroke='white' stroke-width='0.5'%3E%3Cpath d='M30 0L60 30L30 60L0 30Z'/%3E%3Cpath d='M30 10L50 30L30 50L10 30Z'/%3E%3C/g%3E%3C/svg%3E")`,
+            backgroundSize: '60px 60px',
+          }}
+        />
+        <div className="relative flex items-center justify-between">
+          <div>
+            <h2 className="text-xl font-bold">Assalamu&apos;alaikum, Administrator!</h2>
+            <p className="text-emerald-100 mt-1">Kelola sistem perkuliahan pesantren dengan mudah</p>
+          </div>
+          <div className="hidden sm:flex items-center gap-2 bg-white/15 rounded-xl px-4 py-2 backdrop-blur-sm">
+            <TrendingUp className="h-5 w-5" />
+            <div className="text-right">
+              <p className="text-xs text-emerald-100">Semester Aktif</p>
+              <p className="font-bold">2025/2026</p>
+            </div>
+          </div>
+        </div>
+      </div>
+
       {/* Stats Cards */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-2 lg:grid-cols-4">
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Total Mahasantri</p>
-                <p className="text-2xl font-bold text-slate-800">{stats?.totalMahasantri || 0}</p>
+        {statCards.map((card) => (
+          <Card key={card.key} className="border-0 shadow-sm hover:shadow-md transition-all duration-200 group">
+            <CardContent className="p-5">
+              <div className="flex items-start justify-between">
+                <div>
+                  <p className="text-sm text-slate-500 font-medium">{card.label}</p>
+                  <p className={`text-3xl font-bold mt-1 ${card.textColor}`}>{stats?.[card.key] || 0}</p>
+                </div>
+                <div className={`h-12 w-12 rounded-xl ${card.iconBg} flex items-center justify-center group-hover:scale-110 transition-transform`}>
+                  <card.icon className={`h-6 w-6 ${card.iconColor}`} />
+                </div>
               </div>
-              <div className="h-12 w-12 rounded-xl bg-emerald-100 flex items-center justify-center">
-                <Users className="h-6 w-6 text-emerald-600" />
+              <div className={`mt-3 h-1 w-full rounded-full ${card.bg}`}>
+                <div className={`h-1 rounded-full bg-gradient-to-r ${card.gradient}`} style={{ width: '100%' }} />
               </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Kelas Aktif</p>
-                <p className="text-2xl font-bold text-slate-800">{stats?.kelasAktif || 0}</p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-teal-100 flex items-center justify-center">
-                <GraduationCap className="h-6 w-6 text-teal-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Mata Kuliah</p>
-                <p className="text-2xl font-bold text-slate-800">{stats?.totalMataKuliah || 0}</p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-amber-100 flex items-center justify-center">
-                <BookOpen className="h-6 w-6 text-amber-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
-        <Card className="border-0 shadow-sm hover:shadow-md transition-shadow">
-          <CardContent className="p-4">
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="text-sm text-slate-500">Pertemuan Hari Ini</p>
-                <p className="text-2xl font-bold text-slate-800">{stats?.pertemuanHariIni || 0}</p>
-              </div>
-              <div className="h-12 w-12 rounded-xl bg-purple-100 flex items-center justify-center">
-                <CalendarCheck className="h-6 w-6 text-purple-600" />
-              </div>
-            </div>
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        ))}
       </div>
 
       {/* Pending Registrations */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
-          <div className="flex items-center gap-2">
-            <Clock className="h-5 w-5 text-amber-500" />
+          <div className="flex items-center gap-2.5">
+            <div className="h-8 w-8 rounded-lg bg-amber-100 flex items-center justify-center">
+              <Clock className="h-4 w-4 text-amber-600" />
+            </div>
             <CardTitle className="text-base">Pendaftaran Menunggu Konfirmasi</CardTitle>
             {pendingUsers.length > 0 && (
-              <Badge variant="secondary" className="bg-amber-100 text-amber-700">
+              <Badge variant="secondary" className="bg-amber-100 text-amber-700 font-semibold">
                 {pendingUsers.length}
               </Badge>
             )}
@@ -204,27 +204,36 @@ export function AdminDashboard() {
         </CardHeader>
         <CardContent>
           {pendingUsers.length === 0 ? (
-            <EmptyState
-              icon={UserCheck}
-              title="Tidak ada pendaftaran tertunda"
-              description="Semua pendaftaran sudah dikonfirmasi"
-            />
+            <div className="flex flex-col items-center py-8 text-center">
+              <div className="h-12 w-12 rounded-full bg-emerald-100 flex items-center justify-center mb-3">
+                <Sparkles className="h-6 w-6 text-emerald-600" />
+              </div>
+              <p className="text-sm font-medium text-slate-700">Semua pendaftaran sudah dikonfirmasi</p>
+              <p className="text-xs text-slate-500 mt-1">Tidak ada yang perlu ditinjau saat ini</p>
+            </div>
           ) : (
             <ScrollArea className="max-h-96">
               <div className="space-y-3">
                 {pendingUsers.map((user) => (
                   <div
                     key={user.id}
-                    className="flex items-center justify-between p-3 rounded-lg border border-slate-200 bg-slate-50 hover:bg-slate-100 transition-colors"
+                    className="flex items-center justify-between p-4 rounded-xl border border-slate-100 bg-white hover:border-slate-200 transition-all duration-150 shadow-sm"
                   >
-                    <div className="min-w-0 flex-1">
-                      <p className="text-sm font-medium text-slate-800 truncate">{user.name}</p>
-                      <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                    <div className="flex items-center gap-3 min-w-0 flex-1">
+                      <div className="h-10 w-10 rounded-full bg-slate-100 flex items-center justify-center shrink-0">
+                        <span className="text-sm font-bold text-slate-500">
+                          {user.name.charAt(0).toUpperCase()}
+                        </span>
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm font-medium text-slate-800 truncate">{user.name}</p>
+                        <p className="text-xs text-slate-500 truncate">{user.email}</p>
+                      </div>
                     </div>
                     <div className="flex items-center gap-2 ml-3">
                       <Button
                         size="sm"
-                        className="bg-emerald-600 hover:bg-emerald-700 text-white"
+                        className="bg-gradient-to-r from-emerald-600 to-teal-600 hover:from-emerald-700 hover:to-teal-700 text-white shadow-sm"
                         onClick={() => handleConfirm(user.id)}
                         disabled={confirming === user.id}
                       >
@@ -238,7 +247,7 @@ export function AdminDashboard() {
                       <Button
                         size="sm"
                         variant="outline"
-                        className="text-red-600 border-red-200 hover:bg-red-50"
+                        className="text-red-500 border-red-200 hover:bg-red-50 hover:border-red-300"
                         onClick={() => handleReject(user.id)}
                       >
                         <UserX className="h-3 w-3" />
