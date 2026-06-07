@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAdmin } from '@/lib/auth'
+import { requireAuth, requireAdmin } from '@/lib/auth'
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
+    // Any authenticated user can view mata kuliah list
+    const auth = await requireAuth(request)
     if (auth instanceof Response) return auth
 
     const matakuliahList = await db.mataKuliah.findMany({

@@ -3,7 +3,7 @@ generator client {
 }
 
 datasource db {
-  provider = "sqlite"
+  provider = "postgresql"
   url      = env("DATABASE_URL")
 }
 
@@ -22,6 +22,13 @@ model User {
   materialAchievements MaterialAchievement[]
   pengumuman Pengumuman[]
   kehadiran Kehadiran[]
+
+  // Group and Memorization relations
+  ledKelompoks       Kelompok[]          @relation("KelompokLeader")
+  kelompokMembers    KelompokMember[]
+  verifiedHafalans   HafalanLog[]        @relation("HafalanVerifier")
+  createdTugas       Tugas[]
+  tugasDistributions TugasDistribution[]
 }
 
 // Classes / Kelas
@@ -33,10 +40,14 @@ model Kelas {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
-  members    ClassMember[]
-  schedules  Jadwal[]
+  members       ClassMember[]
+  schedules     Jadwal[]
   pertemuanLogs PertemuanLog[]
-  pengumuman Pengumuman[]
+  pengumuman    Pengumuman[]
+
+  // Group and Tugas relations
+  kelompoks     Kelompok[]
+  tugas         Tugas[]
 }
 
 // Class membership with roles
@@ -48,7 +59,7 @@ model ClassMember {
   createdAt DateTime @default(now())
 
   kelas Kelas @relation(fields: [kelasId], references: [id], onDelete: Cascade)
-  user  User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+  user  User  @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([kelasId, userId])
 }
@@ -68,6 +79,7 @@ model MataKuliah {
 
   syllabus  Silabus[]
   schedules Jadwal[]
+  tugas     Tugas[]
 }
 
 // Syllabus items
@@ -163,4 +175,100 @@ model Pengumuman {
 
   kelas     Kelas?   @relation(fields: [kelasId], references: [id], onDelete: SetNull)
   author    User     @relation(fields: [authorId], references: [id], onDelete: Cascade)
+}
+
+// Group/Kelompok model
+model Kelompok {
+  id        String   @id @default(cuid())
+  name      String
+  kelasId   String
+  leaderId  String   // User ID dari Ketua Kelompok
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  kelas     Kelas            @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  leader    User             @relation("KelompokLeader", fields: [leaderId], references: [id], onDelete: Cascade)
+  members   KelompokMember[]
+  targets   HafalanTarget[]
+  tasks     TugasDistribution[]
+}
+
+// Anggota Kelompok
+model KelompokMember {
+  id          String   @id @default(cuid())
+  kelompokId  String
+  userId      String
+  createdAt   DateTime @default(now())
+
+  kelompok    Kelompok @relation(fields: [kelompokId], references: [id], onDelete: Cascade)
+  user        User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  hafalanLogs HafalanLog[]
+
+  @@unique([kelompokId, userId])
+}
+
+// Target Hafalan ditentukan oleh Rois A'm
+model HafalanTarget {
+  id            String   @id @default(cuid())
+  kelompokId    String
+  materi        String   // Misal: "Surah Al-Baqarah 1-10"
+  tanggalTarget DateTime
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  kelompok      Kelompok     @relation(fields: [kelompokId], references: [id], onDelete: Cascade)
+  logs          HafalanLog[]
+}
+
+// Log kehadiran / setoran hafalan diisi oleh Ketua Kelompok (dinamis, tanpa perlu target dari Rois A'm)
+model HafalanLog {
+  id               String   @id @default(cuid())
+  kelompokMemberId String
+  targetId         String?  // Opsional — tidak wajib ada HafalanTarget
+  materi           String   @default("") // Materi hafalan diisi langsung oleh Ketua Kelompok saat absen
+  status           String   // "LANCAR", "KURANG_LANCAR", "BELUM_SETOR"
+  catatan          String   @default("")
+  tanggalSetor     DateTime @default(now())
+  verifierId       String   // User ID dari Ketua Kelompok yang mengabsensi
+
+  member   KelompokMember  @relation(fields: [kelompokMemberId], references: [id], onDelete: Cascade)
+  target   HafalanTarget?  @relation(fields: [targetId], references: [id], onDelete: Cascade)
+  verifier User            @relation("HafalanVerifier", fields: [verifierId], references: [id], onDelete: Cascade)
+}
+
+// Tugas yang dibuat oleh Rois Fan (Ketua Fan Ilmu)
+model Tugas {
+  id           String   @id @default(cuid())
+  kelasId      String
+  mataKuliahId String
+  title        String
+  description  String   @default("")
+  dueDate      DateTime
+  creatorId    String   // User ID dari KETUA_FAN_ILMU
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+
+  kelas      Kelas      @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  mataKuliah MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  creator    User       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
+  distributions TugasDistribution[]
+}
+
+// Distribusi detail tugas ke masing-masing anggota oleh Ketua Kelompok
+model TugasDistribution {
+  id          String   @id @default(cuid())
+  tugasId     String
+  kelompokId  String
+  userId      String   // Member yang ditugaskan
+  taskDetail  String   @default("") // Deskripsi bagian tugas khusus dari ketua kelompok
+  status      String   @default("BELUM") // "BELUM", "SELESAI"
+  catatan     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  tugas     Tugas    @relation(fields: [tugasId], references: [id], onDelete: Cascade)
+  kelompok  Kelompok @relation(fields: [kelompokId], references: [id], onDelete: Cascade)
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([tugasId, kelompokId, userId])
 }

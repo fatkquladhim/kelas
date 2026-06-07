@@ -101,7 +101,15 @@ export function AdminRoles() {
       const res = await fetch(`/api/admin/kelas/${selectedKelasId}/members`)
       if (res.ok) {
         const data = await res.json()
-        setMembers(data.members || [])
+        const raw = data.members || []
+        setMembers(raw.map((m: { id: string; userId: string; role: string; kelasId: string; user?: { name: string; email: string } }) => ({
+          id: m.id,
+          userId: m.userId,
+          userName: m.user?.name || 'Unknown',
+          userEmail: m.user?.email || '',
+          role: m.role,
+          kelasId: m.kelasId,
+        })))
       }
     } catch {
       toast.error('Gagal memuat anggota')
@@ -132,15 +140,21 @@ export function AdminRoles() {
           body: JSON.stringify({ role: 'MAHASANTRI' }),
         })
       }
-      // Then assign new ROIS
-      const res = await fetch(`/api/admin/kelas/${selectedKelasId}/members`, {
-        method: 'POST',
+      // Then assign new ROIS - find the member ID for this user
+      const targetMember = members.find(m => m.userId === selectedUserId)
+      if (!targetMember) {
+        toast.error('Anggota tidak ditemukan di kelas ini')
+        return
+      }
+      const res = await fetch(`/api/admin/kelas/${selectedKelasId}/members/${targetMember.id}`, {
+        method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ userId: selectedUserId, role: 'ROIS_AM' }),
+        body: JSON.stringify({ role: 'ROIS_AM' }),
       })
       if (res.ok) {
         toast.success('Rois A\'m berhasil ditetapkan')
         setRoisOpen(false)
+        setSelectedUserId('')
         fetchMembers()
       } else {
         const data = await res.json()
@@ -222,28 +236,32 @@ export function AdminRoles() {
 
       {/* Assign ROIS Dialog */}
       <Dialog open={roisOpen} onOpenChange={setRoisOpen}>
-        <DialogContent>
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Tetapkan Rois A&apos;m</DialogTitle>
             <DialogDescription>
-              {currentRois ? `Rois A'm saat ini: ${currentRois.userName}` : 'Belum ada Rois A\'m'}
+              {currentRois
+                ? `Rois A'm saat ini: ${currentRois.userName}`
+                : 'Belum ada Rois A\'m untuk kelas ini'}
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
-            <div className="space-y-1">
+            <div className="space-y-2">
               <label className="text-sm font-medium">Pilih Mahasantri</label>
-              <select
-                className="w-full h-9 rounded-md border border-input bg-background px-3 text-sm"
-                value={selectedUserId}
-                onChange={(e) => setSelectedUserId(e.target.value)}
-              >
-                <option value="">-- Pilih Mahasantri --</option>
-                {members
-                  .filter(m => m.role !== 'ROIS_AM')
-                  .map(m => (
-                    <option key={m.userId} value={m.userId}>{m.userName}</option>
-                  ))}
-              </select>
+              <Select value={selectedUserId} onValueChange={setSelectedUserId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="-- Pilih Mahasantri --" />
+                </SelectTrigger>
+                <SelectContent>
+                  {members
+                    .filter(m => m.role !== 'ROIS_AM')
+                    .map(m => (
+                      <SelectItem key={m.userId} value={m.userId}>
+                        {m.userName} ({ROLE_LABELS[m.role] || m.role})
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
             </div>
           </div>
           <DialogFooter>

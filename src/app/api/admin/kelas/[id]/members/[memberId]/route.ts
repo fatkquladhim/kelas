@@ -14,13 +14,13 @@ export async function PATCH(
     const auth = await requireAdmin(request)
     if (auth instanceof Response) return auth
 
-    const { id, memberId } = await context.params
+    const { id: kelasId, memberId } = await context.params
     const body = await request.json()
-    const { role } = body
+    const { role: newRole } = body
 
-    if (!role) {
+    if (!newRole) {
       return NextResponse.json(
-        { error: 'Role is required' },
+        { error: 'role is required' },
         { status: 400 }
       )
     }
@@ -33,82 +33,49 @@ export async function PATCH(
       'SEKRETARIS',
       'BENDAHARA',
     ]
-    if (!validRoles.includes(role)) {
-      return NextResponse.json({ error: 'Invalid role' }, { status: 400 })
-    }
-
-    const member = await db.classMember.findUnique({
-      where: { id: memberId },
-    })
-    if (!member || member.kelasId !== id) {
+    if (!validRoles.includes(newRole)) {
       return NextResponse.json(
-        { error: 'Member not found in this class' },
-        { status: 404 }
+        { error: 'Invalid role' },
+        { status: 400 }
       )
     }
 
-    // If assigning as ROIS_AM, check no existing ROIS_AM (other than this member)
-    if (role === 'ROIS_AM') {
+    // If assigning ROIS_AM, check no existing ROIS_AM (except the one being updated)
+    if (newRole === 'ROIS_AM') {
       const existingRois = await db.classMember.findFirst({
-        where: { kelasId: id, role: 'ROIS_AM', id: { not: memberId } },
+        where: { kelasId, role: 'ROIS_AM', id: { not: memberId } },
       })
       if (existingRois) {
         return NextResponse.json(
-          { error: 'This class already has a Rois A\'m' },
+          { error: 'Kelas ini sudah memiliki Rois A\'m' },
           { status: 409 }
         )
       }
     }
 
-    const updatedMember = await db.classMember.update({
-      where: { id: memberId },
-      data: { role },
-      include: {
-        user: {
-          select: {
-            id: true,
-            name: true,
-            email: true,
-          },
-        },
-      },
-    })
-
-    return NextResponse.json({ member: updatedMember })
-  } catch (error) {
-    console.error('Update member error:', error)
-    return NextResponse.json(
-      { error: 'Internal server error' },
-      { status: 500 }
-    )
-  }
-}
-
-export async function DELETE(
-  request: NextRequest,
-  context: RouteContext
-) {
-  try {
-    const auth = await requireAdmin(request)
-    if (auth instanceof Response) return auth
-
-    const { id, memberId } = await context.params
-
     const member = await db.classMember.findUnique({
       where: { id: memberId },
     })
-    if (!member || member.kelasId !== id) {
+    if (!member || member.kelasId !== kelasId) {
       return NextResponse.json(
         { error: 'Member not found in this class' },
         { status: 404 }
       )
     }
 
-    await db.classMember.delete({ where: { id: memberId } })
+    const updated = await db.classMember.update({
+      where: { id: memberId },
+      data: { role: newRole },
+      include: {
+        user: {
+          select: { id: true, name: true, email: true },
+        },
+      },
+    })
 
-    return NextResponse.json({ message: 'Member removed successfully' })
+    return NextResponse.json({ member: updated })
   } catch (error) {
-    console.error('Remove member error:', error)
+    console.error('Update member role error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

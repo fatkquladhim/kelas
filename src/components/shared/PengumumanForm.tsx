@@ -45,7 +45,7 @@ export function PengumumanForm({
   const [title, setTitle] = useState(initialData?.title || '')
   const [content, setContent] = useState(initialData?.content || '')
   const [category, setCategory] = useState(initialData?.category || 'UMUM')
-  const [kelasId, setKelasId] = useState(initialData?.kelasId || '')
+  const [kelasId, setKelasId] = useState(initialData?.kelasId || 'ALL_CLASSES')
   const [isPinned, setIsPinned] = useState(initialData?.isPinned || false)
   const [classes, setClasses] = useState<Kelas[]>([])
 
@@ -67,7 +67,13 @@ export function PengumumanForm({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!title.trim() || !content.trim()) return
-    await onSubmit({ title: title.trim(), content: content.trim(), category, kelasId, isPinned })
+    await onSubmit({
+      title: title.trim(),
+      content: content.trim(),
+      category,
+      kelasId: kelasId === 'ALL_CLASSES' ? '' : kelasId,
+      isPinned,
+    })
   }
 
   return (
@@ -121,7 +127,7 @@ export function PengumumanForm({
               <SelectValue placeholder="Semua Kelas" />
             </SelectTrigger>
             <SelectContent>
-              <SelectItem value="">Semua Kelas</SelectItem>
+              <SelectItem value="ALL_CLASSES">Semua Kelas</SelectItem>
               {classes.map((c) => (
                 <SelectItem key={c.id} value={c.id}>
                   {c.name} - Semester {c.semester}

@@ -46,6 +46,8 @@ export type PageView =
   | 'admin-kehadiran'
   | 'rois-dashboard'
   | 'rois-members'
+  | 'rois-kelompok'
+  | 'student-kelompok'
   | 'admin-pengumuman'
   | 'pengumuman'
   | 'ketua-capaian'
@@ -71,6 +73,7 @@ interface AppState {
   isAdmin: () => boolean
   isRoisAm: () => boolean
   isKetuaFanIlmu: () => boolean
+  isKetuaKelompok: () => boolean
   getMyRole: () => MemberRole | null
 }
 
@@ -153,6 +156,10 @@ export const useAppStore = create<AppState>()(
       isKetuaFanIlmu: () => {
         const state = get()
         return state.classMembers.some(m => m.userId === state.user?.id && m.role === 'KETUA_FAN_ILMU')
+      },
+      isKetuaKelompok: () => {
+        const state = get()
+        return state.classMembers.some(m => m.userId === state.user?.id && m.role === 'KETUA_KELOMPOK')
       },
       getMyRole: () => {
         const state = get()

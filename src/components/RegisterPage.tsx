@@ -79,11 +79,7 @@ export function RegisterPage() {
           </div>
           <h1 className="text-2xl font-bold text-slate-800 tracking-tight">Sistem Kelas Perkuliahan</h1>
           <p className="text-emerald-600 font-medium mt-1 text-sm">Pesantren Mahasantri</p>
-          <div className="flex items-center justify-center gap-2 mt-3">
-            <div className="h-px w-12 bg-gradient-to-r from-transparent to-emerald-300" />
-            <span className="text-xs text-emerald-500 font-arabic">بِسْمِ اللَّهِ الرَّحْمَنِ الرَّحِيمِ</span>
-            <div className="h-px w-12 bg-gradient-to-l from-transparent to-emerald-300" />
-          </div>
+
         </div>
 
         {/* Register Card */}

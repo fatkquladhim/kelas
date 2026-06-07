@@ -22,6 +22,8 @@ import { StudentProgress } from '@/components/student/StudentProgress'
 import { StudentAttendance } from '@/components/student/StudentAttendance'
 import { RoisDashboard } from '@/components/rois/RoisDashboard'
 import { RoisMembers } from '@/components/rois/RoisMembers'
+import { RoisKelompok } from '@/components/rois/RoisKelompok'
+import { StudentKelompok } from '@/components/student/StudentKelompok'
 import { KetuaCapaianMateri } from '@/components/ketua-fan-ilmu/KetuaCapaianMateri'
 import { AdminPengumuman } from '@/components/admin/AdminPengumuman'
 import { PengumumanList } from '@/components/student/PengumumanList'
@@ -61,6 +63,10 @@ function PageContent() {
       return <RoisDashboard />
     case 'rois-members':
       return <RoisMembers />
+    case 'rois-kelompok':
+      return <RoisKelompok />
+    case 'student-kelompok':
+      return <StudentKelompok />
     case 'ketua-capaian':
       return <KetuaCapaianMateri />
     case 'admin-pengumuman':

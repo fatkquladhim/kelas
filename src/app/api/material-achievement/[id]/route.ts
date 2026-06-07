@@ -26,6 +26,17 @@ export async function PATCH(
       )
     }
 
+    // Only KETUA_FAN_ILMU of the class can update material achievements
+    const member = await db.classMember.findUnique({
+      where: { kelasId_userId: { kelasId: existing.kelasId, userId: auth.userId } },
+    })
+    if (!member || member.role !== 'KETUA_FAN_ILMU') {
+      return NextResponse.json(
+        { error: 'Only Ketua Fan Ilmu can modify material achievements' },
+        { status: 403 }
+      )
+    }
+
     const updateData: Record<string, unknown> = {}
     if (tanggal !== undefined) updateData.tanggal = new Date(tanggal)
     if (persentase !== undefined) {
@@ -85,6 +96,17 @@ export async function DELETE(
       return NextResponse.json(
         { error: 'Material achievement not found' },
         { status: 404 }
+      )
+    }
+
+    // Only KETUA_FAN_ILMU of the class can delete material achievements
+    const member = await db.classMember.findUnique({
+      where: { kelasId_userId: { kelasId: existing.kelasId, userId: auth.userId } },
+    })
+    if (!member || member.role !== 'KETUA_FAN_ILMU') {
+      return NextResponse.json(
+        { error: 'Only Ketua Fan Ilmu can delete material achievements' },
+        { status: 403 }
       )
     }
 

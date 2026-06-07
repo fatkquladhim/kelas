@@ -78,6 +78,7 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
     { label: 'Silabus', page: 'student-syllabus', icon: ClipboardList },
     { label: 'Progres Materi', page: 'student-progress', icon: BarChart3 },
     { label: 'Kehadiran', page: 'student-kehadiran', icon: UserCheck },
+    { label: 'Kelompok Saya', page: 'student-kelompok', icon: Users },
     { label: 'Pengumuman', page: 'pengumuman', icon: Bell },
   ]
 
@@ -91,6 +92,7 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
     navItems = [...studentNavItems]
     if (isRoisAm()) {
       navItems.push({ label: 'Dashboard Rois', page: 'rois-dashboard', icon: Shield })
+      navItems.push({ label: 'Manajemen Kelompok', page: 'rois-kelompok', icon: Users })
       navItems.push({ label: 'Pengaturan Anggota', page: 'rois-members', icon: UserCog })
     }
     if (isKetuaFanIlmu()) {
