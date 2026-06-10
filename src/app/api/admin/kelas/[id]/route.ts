@@ -16,7 +16,7 @@ export async function PATCH(
 
     const { id } = await context.params
     const body = await request.json()
-    const { name, semester, tahunAjaran } = body
+    const { name, semester, tahunAjaran, startDate } = body
 
     const existingKelas = await db.kelas.findUnique({ where: { id } })
     if (!existingKelas) {
@@ -27,6 +27,7 @@ export async function PATCH(
     if (name !== undefined) updateData.name = name
     if (semester !== undefined) updateData.semester = Number(semester)
     if (tahunAjaran !== undefined) updateData.tahunAjaran = tahunAjaran
+    if (startDate !== undefined) updateData.startDate = startDate ? new Date(startDate) : null
 
     const kelas = await db.kelas.update({
       where: { id },

@@ -5,7 +5,9 @@ import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
 import { Skeleton } from '@/components/ui/skeleton'
 import { useAppStore } from '@/lib/store'
-import { Users, GraduationCap, Calendar, Shield, CheckCircle2 } from 'lucide-react'
+import { Users, GraduationCap, Calendar, Shield, CheckCircle2, Download } from 'lucide-react'
+import { toast } from 'sonner'
+import { Button } from '@/components/ui/button'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { getRoleBadgeColor, getRoleLabel } from '@/components/Sidebar'
 
@@ -27,6 +29,34 @@ export function RoisDashboard() {
   const { user, selectedKelas, classMembers } = useAppStore()
   const [loading, setLoading] = useState(true)
   const [scheduleCount, setScheduleCount] = useState(0)
+  const [downloading, setDownloading] = useState(false)
+
+  const handleDownloadReport = async () => {
+    if (!selectedKelas) return
+    setDownloading(true)
+    try {
+      const res = await fetch(`/api/rois/download-report?kelasId=${selectedKelas.id}`)
+      if (res.ok) {
+        const blob = await res.blob()
+        const url = window.URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url
+        a.download = `Laporan_${selectedKelas.name}_Semester_${selectedKelas.semester}.doc`
+        document.body.appendChild(a)
+        a.click()
+        document.body.removeChild(a)
+        window.URL.revokeObjectURL(url)
+        toast.success('Laporan berhasil diunduh')
+      } else {
+        const data = await res.json()
+        toast.error(data.error || 'Gagal mengunduh laporan')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan')
+    } finally {
+      setDownloading(false)
+    }
+  }
 
   useEffect(() => {
     let cancelled = false
@@ -88,6 +118,20 @@ export function RoisDashboard() {
             : 'Pilih kelas untuk melihat informasi'}
         </p>
       </div>
+
+      {/* Download Report */}
+      {selectedKelas && (
+        <div className="flex justify-end">
+          <Button
+            onClick={handleDownloadReport}
+            disabled={downloading}
+            className="bg-emerald-600 hover:bg-emerald-700 text-white"
+          >
+            <Download className="h-4 w-4 mr-2" />
+            {downloading ? 'Mengunduh...' : 'Unduh Laporan Progres (.doc)'}
+          </Button>
+        </div>
+      )}
 
       {/* Stats */}
       <div className="grid gap-4 grid-cols-1 sm:grid-cols-3">

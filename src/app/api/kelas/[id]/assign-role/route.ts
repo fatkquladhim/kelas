@@ -26,6 +26,7 @@ export async function PATCH(
     }
 
     const assignableRoles = [
+      'DOIS_AM',
       'KETUA_FAN_ILMU',
       'KETUA_KELOMPOK',
       'SEKRETARIS',

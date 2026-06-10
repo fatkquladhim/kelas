@@ -2,17 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
 
-// Day mapper for Indonesian day names
-const DAY_MAP: Record<string, number> = {
-  AHAD: 0,
-  SENIN: 1,
-  SELASA: 2,
-  RABU: 3,
-  KAMIS: 4,
-  JUMAT: 5,
-  SABTU: 6,
-}
-
 export async function POST(request: NextRequest) {
   try {
     const auth = await requireAuth(request)
@@ -49,87 +38,36 @@ export async function POST(request: NextRequest) {
       return NextResponse.json({ error: 'Silabus not found' }, { status: 404 })
     }
 
-    const { mataKuliahId, pertemuan: selectedPertemuan } = selectedSilabus
+    // Fetch class to get dynamic startDate for description
+    const kelas = await db.kelas.findUnique({ where: { id: kelasId } })
 
-    // Fetch all syllabus items for this course, ordered by pertemuan
-    const syllabusList = await db.silabus.findMany({
-      where: { mataKuliahId },
-      orderBy: { pertemuan: 'asc' },
-    })
+    const pct = customPercentage !== undefined ? Number(customPercentage) : 100
 
-    // Fetch weekly schedules for this subject in this class
-    const schedules = await db.jadwal.findMany({
-      where: { kelasId, mataKuliahId },
-    })
-
-    const scheduleDays = schedules.map(s => DAY_MAP[s.hari.toUpperCase()]).filter(d => d !== undefined)
-
-    // Calculate actual dates based on schedule starting Jan 3, 2026
-    const startDate = new Date('2026-01-03')
-    const endDate = new Date() // Today
-    const scheduledDates: string[] = []
-
-    if (scheduleDays.length > 0) {
-      let currentDate = new Date(startDate)
-      while (currentDate <= endDate) {
-        const dayOfWeek = currentDate.getDay()
-        if (scheduleDays.includes(dayOfWeek)) {
-          scheduledDates.push(currentDate.toISOString().split('T')[0])
-        }
-        currentDate.setDate(currentDate.getDate() + 1)
-      }
-    }
-
-    // Delete existing achievements for this course's syllabus items in this class
-    const syllabusIds = syllabusList.map(s => s.id)
+    // Upsert achievement for this specific silabus item (replace old entry)
     await db.materialAchievement.deleteMany({
       where: {
         kelasId,
-        silabusId: { in: syllabusIds },
+        silabusId,
       },
     })
 
-    // Auto-create material achievements up to selectedPertemuan
-    const achievementsToCreate = []
-    const todayStr = new Date().toISOString().split('T')[0]
-
-    for (let i = 0; i < syllabusList.length; i++) {
-      const s = syllabusList[i]
-      if (s.pertemuan <= selectedPertemuan) {
-        // Find date for this meeting from calculated schedule, fallback to today
-        const dateStr = scheduledDates[s.pertemuan - 1] || todayStr
-        
-        // If it's the exact selected pertemuan, we can use the custom percentage (e.g. 50% if currently studying)
-        // or default to 100%
-        let pct = 100
-        if (s.pertemuan === selectedPertemuan && customPercentage !== undefined) {
-          pct = Number(customPercentage)
-        }
-
-        achievementsToCreate.push({
-          silabusId: s.id,
-          kelasId,
-          userId: auth.userId,
-          tanggal: new Date(dateStr),
-          persentase: pct,
-          deskripsi: `Otomatis diisi hingga akhir pembahasan (Pertemuan ${selectedPertemuan}: ${selectedSilabus.materiPokok})`,
-        })
-      }
-    }
-
-    // Create achievements
-    let count = 0
-    for (const ach of achievementsToCreate) {
-      await db.materialAchievement.create({ data: ach })
-      count++
-    }
+    await db.materialAchievement.create({
+      data: {
+        silabusId,
+        kelasId,
+        userId: auth.userId,
+        tanggal: new Date(),
+        persentase: Math.min(Math.max(pct, 0), 100),
+        deskripsi: `Pembahasan hingga Pertemuan ${selectedSilabus.pertemuan}: ${selectedSilabus.materiPokok}`,
+      },
+    })
 
     return NextResponse.json({
       success: true,
-      message: `Berhasil mengisi otomatis ${count} capaian materi.`,
+      message: `Capaian untuk pertemuan ${selectedSilabus.pertemuan} berhasil disimpan.`,
     })
   } catch (error) {
-    console.error('Auto fill achievement error:', error)
+    console.error('Save achievement error:', error)
     return NextResponse.json(
       { error: 'Internal server error' },
       { status: 500 }

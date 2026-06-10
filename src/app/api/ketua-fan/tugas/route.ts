@@ -33,6 +33,12 @@ export async function GET(request: NextRequest) {
             user: { select: { id: true, name: true } },
           },
         },
+        targetKelompok: {
+          select: { id: true, name: true },
+        },
+        targetUser: {
+          select: { id: true, name: true },
+        },
       },
       orderBy: { dueDate: 'asc' },
     })
@@ -54,7 +60,7 @@ export async function POST(request: NextRequest) {
     if (auth instanceof Response) return auth
 
     const body = await request.json()
-    const { kelasId, mataKuliahId, title, description, dueDate } = body
+    const { kelasId, mataKuliahId, title, description, dueDate, targetType, targetKelompokId, targetUserId } = body
 
     if (!kelasId || !mataKuliahId || !title || !dueDate) {
       return NextResponse.json(
@@ -82,9 +88,14 @@ export async function POST(request: NextRequest) {
         description: description || '',
         dueDate: new Date(dueDate),
         creatorId: auth.userId,
+        targetType: targetType || 'KELAS',
+        targetKelompokId: targetType === 'KELOMPOK' ? targetKelompokId : null,
+        targetUserId: targetType === 'INDIVIDU' ? targetUserId : null,
       },
       include: {
         mataKuliah: { select: { id: true, code: true, name: true } },
+        targetKelompok: { select: { id: true, name: true } },
+        targetUser: { select: { id: true, name: true } },
       },
     })
 

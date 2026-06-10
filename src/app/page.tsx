@@ -27,6 +27,7 @@ import { StudentKelompok } from '@/components/student/StudentKelompok'
 import { KetuaCapaianMateri } from '@/components/ketua-fan-ilmu/KetuaCapaianMateri'
 import { AdminPengumuman } from '@/components/admin/AdminPengumuman'
 import { PengumumanList } from '@/components/student/PengumumanList'
+import { ProfilePage } from '@/components/shared/ProfilePage'
 import { Loader2 } from 'lucide-react'
 
 function PageContent() {
@@ -73,6 +74,8 @@ function PageContent() {
       return <AdminPengumuman />
     case 'pengumuman':
       return <PengumumanList />
+    case 'profile':
+      return <ProfilePage />
     default:
       return <StudentDashboard />
   }

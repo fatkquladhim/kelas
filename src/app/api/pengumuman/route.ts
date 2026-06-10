@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
 import { requireAuth } from '@/lib/auth'
 
-// POST /api/pengumuman - Create announcement
 export async function POST(request: NextRequest) {
   const auth = await requireAuth(request)
   if (auth instanceof Response) return auth
@@ -16,6 +15,35 @@ export async function POST(request: NextRequest) {
         { error: 'Judul dan konten wajib diisi' },
         { status: 400 }
       )
+    }
+
+    // Check permissions: Admin can do anything. Rois/Dois Am can only do for their own class.
+    const user = await db.user.findUnique({ where: { id: auth.userId } })
+    const isAdmin = user?.role === 'ADMIN'
+
+    if (!isAdmin) {
+      if (!kelasId) {
+        return NextResponse.json(
+          { error: 'Hanya Admin yang dapat membuat pengumuman global (Semua Kelas)' },
+          { status: 403 }
+        )
+      }
+
+      // Check if user is ROIS_AM or KETUA_FAN_ILMU in the specified class
+      const classMembership = await db.classMember.findFirst({
+        where: {
+          kelasId,
+          userId: auth.userId,
+          role: { in: ['ROIS_AM', 'KETUA_FAN_ILMU'] },
+        },
+      })
+
+      if (!classMembership) {
+        return NextResponse.json(
+          { error: 'Hanya Rois A\'m atau Rois Fan yang dapat membuat pengumuman kelas ini' },
+          { status: 403 }
+        )
+      }
     }
 
     const pengumuman = await db.pengumuman.create({

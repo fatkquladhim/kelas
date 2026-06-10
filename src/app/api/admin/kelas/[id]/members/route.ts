@@ -79,6 +79,7 @@ export async function POST(
     const validRoles = [
       'MAHASANTRI',
       'ROIS_AM',
+      'DOIS_AM',
       'KETUA_FAN_ILMU',
       'KETUA_KELOMPOK',
       'SEKRETARIS',

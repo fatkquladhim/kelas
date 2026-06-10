@@ -40,9 +40,15 @@ import {
   ArrowUpDown,
   Filter,
   Sparkles,
+  FileText,
+  Users,
+  Target,
+  Presentation,
 } from 'lucide-react'
 import { toast } from 'sonner'
 import { useAppStore } from '@/lib/store'
+import { TugasSection } from '@/components/ketua-fan-ilmu/TugasSection'
+import { PresentasiJadwalSection } from '@/components/ketua-fan-ilmu/PresentasiJadwalSection'
 
 // ─── Types ───────────────────────────────────────────────────────
 
@@ -204,9 +210,12 @@ export function KetuaCapaianMateri() {
   const [deletingAchievement, setDeletingAchievement] = useState<MaterialAchievement | null>(null)
   const [deleting, setDeleting] = useState(false)
 
-  // Auto-fill state
-  const [autoFillSilabusId, setAutoFillSilabusId] = useState<string>('')
-  const [autoFillPct, setAutoFillPct] = useState<number>(100)
+  // Manual input & fuzzy match state
+  const [manualText, setManualText] = useState('')
+  const [suggestedSilabusId, setSuggestedSilabusId] = useState<string>('')
+  const [suggestedPertemuan, setSuggestedPertemuan] = useState<number>(0)
+  const [suggestedPercentage, setSuggestedPercentage] = useState<number>(0)
+  const [fuzzyLoading, setFuzzyLoading] = useState(false)
   const [classSchedules, setClassSchedules] = useState<any[]>([])
 
   // Fetch schedules for schedule-based progress calculations
@@ -240,7 +249,7 @@ export function KetuaCapaianMateri() {
     SABTU: 6,
   }), [])
 
-  // Calculate expected meetings count since Jan 3, 2026 based on weekly schedule
+  // Calculate expected meetings count based on startDate from kelas
   const expectedMeetings = useMemo(() => {
     if (!selectedMkId || classSchedules.length === 0) return 0
     
@@ -251,8 +260,8 @@ export function KetuaCapaianMateri() {
     const dayIndices = mkSchedules.map(s => DAY_MAP[s.hari.toUpperCase() as keyof typeof DAY_MAP]).filter(d => d !== undefined)
     if (dayIndices.length === 0) return 0
     
-    const startDate = new Date('2026-01-03')
-    const endDate = new Date() // Today
+    const startDate = selectedKelas?.startDate ? new Date(selectedKelas.startDate) : new Date(new Date().getFullYear(), 0, 3)
+    const endDate = new Date()
     
     let count = 0
     let tempDate = new Date(startDate)
@@ -263,32 +272,80 @@ export function KetuaCapaianMateri() {
       tempDate.setDate(tempDate.getDate() + 1)
     }
     return count
-  }, [selectedMkId, classSchedules, DAY_MAP])
+  }, [selectedMkId, classSchedules, DAY_MAP, selectedKelas?.startDate])
 
-  // Submit auto fill capaian
-  const handleAutoFillSubmit = async () => {
-    if (!autoFillSilabusId || !selectedKelas?.id) return
+  // Fuzzy matching: find closest silabus item by word overlap
+  const fuzzyMatchSilabus = useCallback((text: string) => {
+    if (!text.trim() || silabusItems.length === 0) return null
+    const words = text.toLowerCase().split(/\s+/).filter(w => w.length > 2)
+    if (words.length === 0) return null
+
+    let bestMatch: { id: string; pertemuan: number; score: number } | null = null
+    for (const s of silabusItems) {
+      const target = `${s.materiPokok} ${s.subMateri}`.toLowerCase()
+      let matchCount = 0
+      for (const w of words) {
+        if (target.includes(w)) matchCount++
+      }
+      const score = matchCount / words.length
+      if (score > 0 && (!bestMatch || score > bestMatch.score)) {
+        bestMatch = { id: s.id, pertemuan: s.pertemuan, score }
+      }
+    }
+    return bestMatch
+  }, [silabusItems])
+
+  const handleFuzzyMatch = () => {
+    if (!manualText.trim()) {
+      toast.error('Tuliskan akhir pembahasan terlebih dahulu')
+      return
+    }
+    setFuzzyLoading(true)
+    // Simulate brief calculation
+    setTimeout(() => {
+      const match = fuzzyMatchSilabus(manualText)
+      if (match) {
+        setSuggestedSilabusId(match.id)
+        setSuggestedPertemuan(match.pertemuan)
+        // Calculate percentage based on pertemuan matched / total silabus
+        const pct = Math.round((match.pertemuan / silabusItems.length) * 100)
+        setSuggestedPercentage(Math.min(pct, 100))
+        toast.success(`Pertemuan terdekat: ${match.pertemuan} (skor: ${Math.round(match.score * 100)}%)`)
+      } else {
+        setSuggestedSilabusId('')
+        setSuggestedPertemuan(0)
+        setSuggestedPercentage(0)
+        toast.error('Tidak ditemukan pertemuan yang cocok. Coba gunakan kata kunci berbeda.')
+      }
+      setFuzzyLoading(false)
+    }, 300)
+  }
+
+  const handleManualSave = async () => {
+    if (!suggestedSilabusId || !selectedKelas?.id) return
     try {
       setSubmitting(true)
       const res = await fetch('/api/material-achievement/auto', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
-          silabusId: autoFillSilabusId,
+          silabusId: suggestedSilabusId,
           kelasId: selectedKelas.id,
-          customPercentage: autoFillPct,
+          customPercentage: suggestedPercentage,
         }),
       })
 
       if (res.ok) {
-        toast.success('Capaian materi berhasil diisi secara otomatis!')
-        setAutoFillSilabusId('')
-        setAutoFillPct(100)
+        toast.success('Capaian materi berhasil disimpan!')
+        setManualText('')
+        setSuggestedSilabusId('')
+        setSuggestedPertemuan(0)
+        setSuggestedPercentage(0)
         await fetchSilabusAndAchievements(selectedMkId)
         await fetchOverviewData()
       } else {
         const data = await res.json()
-        throw new Error(data.error || 'Gagal mengisi capaian secara otomatis')
+        throw new Error(data.error || 'Gagal menyimpan capaian')
       }
     } catch (err) {
       toast.error(err instanceof Error ? err.message : 'Terjadi kesalahan')
@@ -854,97 +911,76 @@ export function KetuaCapaianMateri() {
             </CardContent>
           </Card>
 
-          {/* Auto-Fill / Auto-Capaian Card */}
+          {/* Manual Input / Fuzzy Match Card */}
           {!studentPreview && (
             <Card className="border-0 shadow-sm bg-gradient-to-br from-slate-900 via-slate-900 to-emerald-950 text-white overflow-hidden relative">
-              {/* Geometric pattern decoration */}
               <div className="absolute right-0 bottom-0 opacity-10 pointer-events-none translate-x-1/4 translate-y-1/4">
                 <BookOpen className="h-48 w-48" />
               </div>
               <CardContent className="p-5 sm:p-6 space-y-4">
                 <div className="flex items-center gap-2">
                   <Sparkles className="h-5 w-5 text-emerald-400 animate-pulse" />
-                  <h3 className="text-sm font-bold tracking-wide text-emerald-300">PENGISIAN CEPAT / AUTO-CAPAIAN</h3>
+                  <h3 className="text-sm font-bold tracking-wide text-emerald-300">ISI CAPAIAN AKHIR PEMBAHASAN</h3>
                 </div>
                 <p className="text-xs text-slate-300 leading-relaxed max-w-2xl">
-                  Berdasarkan tanggal mulai Semester Genap (**3 Januari 2026**) dan jadwal mingguan Anda, seharusnya sudah terlaksana 
-                  <span className="mx-1 px-1.5 py-0.5 rounded bg-emerald-500/20 text-emerald-300 font-semibold">{expectedMeetings} pertemuan</span>. 
-                  Cukup pilih materi/pertemuan akhir yang telah selesai dibahas untuk mengisi semua progres di bawahnya secara otomatis.
+                  Tuliskan akhir makna/pembahasan secara manual. Sistem akan mencocokkan dengan silabus dan 
+                  menghitung progres berdasarkan tanggal mulai semester ({selectedKelas?.startDate ? new Date(selectedKelas.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'long', year: 'numeric' }) : '3 Januari 2026'}).
                 </p>
 
-                <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 items-end pt-2">
-                  {/* Select Dropdown */}
+                <div className="space-y-3">
                   <div className="space-y-1.5">
-                    <Label className="text-xs font-semibold text-slate-300">Akhir Pembahasan (Materi Selesai)</Label>
-                    <Select value={autoFillSilabusId} onValueChange={setAutoFillSilabusId}>
-                      <SelectTrigger className="bg-slate-800/80 border-slate-700 text-white text-xs h-9">
-                        <SelectValue placeholder="Pilih materi terakhir..." />
-                      </SelectTrigger>
-                      <SelectContent className="bg-slate-900 border-slate-850 text-white max-h-[300px]">
-                        {silabusItems.map(s => (
-                          <SelectItem key={s.id} value={s.id} className="focus:bg-emerald-800 focus:text-white text-xs">
-                            Pertemuan {s.pertemuan}: {s.materiPokok.substring(0, 50)}...
-                          </SelectItem>
-                        ))}
-                      </SelectContent>
-                    </Select>
+                    <Label className="text-xs font-semibold text-slate-300">Akhir Makna / Pembahasan</Label>
+                    <div className="flex gap-2">
+                      <input
+                        value={manualText}
+                        onChange={e => setManualText(e.target.value)}
+                        placeholder="Contoh: Bab Shalat hal. 45"
+                        className="flex-1 bg-slate-800/80 border border-slate-700 rounded-lg px-3 py-2 text-xs text-white placeholder-slate-500 focus:outline-none focus:ring-2 focus:ring-emerald-500"
+                      />
+                      <Button
+                        onClick={handleFuzzyMatch}
+                        disabled={fuzzyLoading || !manualText.trim()}
+                        className="bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-medium text-xs h-9 shrink-0"
+                      >
+                        {fuzzyLoading ? 'Mencocokkan...' : 'Cari Pertemuan'}
+                      </Button>
+                    </div>
                   </div>
 
-                  {/* Percentage Slider / Input */}
-                  {autoFillSilabusId && (
-                    <div className="space-y-1.5 animate-fadeIn">
-                      <div className="flex justify-between">
-                        <Label className="text-xs font-semibold text-slate-300">Ketercapaian Pertemuan Terakhir</Label>
-                        <span className="text-xs text-emerald-400 font-bold">{autoFillPct}%</span>
+                  {suggestedPertemuan > 0 && (
+                    <div className="p-3 rounded-lg bg-white/5 border border-white/10 space-y-3 animate-fadeIn">
+                      <div className="flex items-center justify-between">
+                        <div className="flex items-center gap-2 text-xs text-slate-300">
+                          <CheckCircle2 className="h-4 w-4 text-emerald-400" />
+                          <span>Pertemuan Terdekat: <strong className="text-white">{suggestedPertemuan}</strong></span>
+                        </div>
+                        <div className="flex items-center gap-2">
+                          <Label className="text-xs text-slate-400">Capaian:</Label>
+                          <input
+                            type="number"
+                            min={0}
+                            max={100}
+                            value={suggestedPercentage}
+                            onChange={e => setSuggestedPercentage(Number(e.target.value))}
+                            className="w-16 bg-slate-800 border border-slate-700 rounded px-2 py-1 text-xs text-white text-center"
+                          />
+                          <span className="text-xs text-slate-400">%</span>
+                        </div>
                       </div>
-                      <div className="flex items-center gap-3 py-1">
-                        <Slider
-                          value={[autoFillPct]}
-                          onValueChange={v => setAutoFillPct(v[0])}
-                          max={100}
-                          step={10}
-                          className="flex-1"
-                        />
+                      <div className="flex items-center justify-between text-xs text-slate-400">
+                        <span>Progres Silabus: {Math.round((suggestedPertemuan / silabusItems.length) * 100)}% ({suggestedPertemuan}/{silabusItems.length} pertemuan)</span>
+                        <span>Target Jadwal: {expectedMeetings > 0 ? `${Math.round((suggestedPertemuan / expectedMeetings) * 100)}%` : 'N/A'}</span>
                       </div>
+                      <Button
+                        onClick={handleManualSave}
+                        disabled={submitting}
+                        className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-medium text-xs h-9"
+                      >
+                        {submitting ? 'Menyimpan...' : 'Simpan Capaian'}
+                      </Button>
                     </div>
                   )}
-
-                  {/* Action Button */}
-                  <div>
-                    <Button
-                      onClick={handleAutoFillSubmit}
-                      disabled={!autoFillSilabusId || submitting}
-                      className="w-full bg-gradient-to-r from-emerald-500 to-teal-600 hover:from-emerald-600 hover:to-teal-700 text-white font-medium text-xs h-9 shadow-lg shadow-emerald-950/40"
-                    >
-                      {submitting ? 'Memproses...' : 'Terapkan Progres'}
-                    </Button>
-                  </div>
                 </div>
-
-                {/* Compare target indicators */}
-                {autoFillSilabusId && (
-                  <div className="p-3 rounded-lg bg-white/5 border border-white/10 flex flex-wrap items-center justify-between gap-3 text-xs text-slate-300">
-                    <div className="flex items-center gap-2">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-400" />
-                      <span>
-                        Progres Silabus: <strong className="text-white">{Math.round((silabusItems.find(s => s.id === autoFillSilabusId)?.pertemuan || 0) / silabusItems.length * 100)}%</strong>
-                      </span>
-                    </div>
-                    {expectedMeetings > 0 && (
-                      <div className="flex items-center gap-2">
-                        <AlertCircle className="h-4 w-4 text-emerald-400" />
-                        <span>
-                          Target Jadwal: <strong className="text-white">{Math.round((silabusItems.find(s => s.id === autoFillSilabusId)?.pertemuan || 0) / expectedMeetings * 100)}%</strong>
-                          {Math.round((silabusItems.find(s => s.id === autoFillSilabusId)?.pertemuan || 0) / expectedMeetings * 100) < 100 ? (
-                            <span className="text-amber-400 ml-1.5 font-medium">(Terlambat dari Target)</span>
-                          ) : (
-                            <span className="text-emerald-400 ml-1.5 font-medium">(Sesuai Target)</span>
-                          )}
-                        </span>
-                      </div>
-                    )}
-                  </div>
-                )}
               </CardContent>
             </Card>
           )}
@@ -1141,6 +1177,36 @@ export function KetuaCapaianMateri() {
             </div>
           )}
         </>
+      )}
+
+      {/* ─── TUGAS SECTION ──────────────────────────────────── */}
+      {selectedMkId && !studentPreview && (
+        <div className="space-y-4">
+          <Separator />
+          <div className="flex items-center gap-2">
+            <FileText className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-base font-semibold text-slate-800">Penugasan (Tugas)</h3>
+          </div>
+          <TugasSection
+            kelasId={selectedKelas?.id || ''}
+            mataKuliahId={selectedMkId}
+          />
+        </div>
+      )}
+
+      {/* ─── JADWAL MENERANGKAN SECTION ─────────────────────── */}
+      {selectedMkId && !studentPreview && (
+        <div className="space-y-4">
+          <Separator />
+          <div className="flex items-center gap-2">
+            <Presentation className="h-5 w-5 text-emerald-600" />
+            <h3 className="text-base font-semibold text-slate-800">Jadwal Menerangkan / Presentasi</h3>
+          </div>
+          <PresentasiJadwalSection
+            kelasId={selectedKelas?.id || ''}
+            mataKuliahId={selectedMkId}
+          />
+        </div>
       )}
 
       {/* ─── Create / Edit Dialog (hidden in student preview) ── */}

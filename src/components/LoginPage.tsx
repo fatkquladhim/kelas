@@ -136,7 +136,7 @@ export function LoginPage() {
             </Button>
           </form>
 
-          <div className="mt-6 text-center">
+          <div className="mt-6 text-center space-y-2">
             <p className="text-sm text-slate-500">
               Belum punya akun?{' '}
               <button
@@ -146,6 +146,28 @@ export function LoginPage() {
                 Daftar sekarang
               </button>
             </p>
+            <div className="pt-1">
+              <button
+                onClick={() => {
+                  const email = prompt('Masukkan email Anda untuk mengirim permohonan reset password:')
+                  if (email) {
+                    fetch('/api/auth/forgot-password', {
+                      method: 'POST',
+                      headers: { 'Content-Type': 'application/json' },
+                      body: JSON.stringify({ email }),
+                    })
+                      .then(r => r.json())
+                      .then(data => {
+                        toast.success(data.message || 'Permohonan reset dikirim')
+                      })
+                      .catch(() => toast.error('Terjadi kesalahan'))
+                  }
+                }}
+                className="text-xs text-slate-400 hover:text-emerald-600 transition-colors underline underline-offset-2"
+              >
+                Lupa Password?
+              </button>
+            </div>
           </div>
         </div>
 

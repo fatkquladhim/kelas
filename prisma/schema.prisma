@@ -18,10 +18,10 @@ model User {
   createdAt DateTime @default(now())
   updatedAt DateTime @updatedAt
 
-  classMemberships ClassMember[]
+  classMemberships     ClassMember[]
   materialAchievements MaterialAchievement[]
-  pengumuman Pengumuman[]
-  kehadiran Kehadiran[]
+  pengumuman           Pengumuman[]
+  kehadiran            Kehadiran[]
 
   // Group and Memorization relations
   ledKelompoks       Kelompok[]          @relation("KelompokLeader")
@@ -29,6 +29,12 @@ model User {
   verifiedHafalans   HafalanLog[]        @relation("HafalanVerifier")
   createdTugas       Tugas[]
   tugasDistributions TugasDistribution[]
+
+  // NEW: Relations for new features
+  roisFanSubjects    RoisFanSubject[]
+  targetedTugas      Tugas[]             @relation("TugasTargetUser")
+  presentasiJadwals  PresentasiJadwal[]
+  resetRequests      ResetPasswordRequest[]
 }
 
 // Classes / Kelas
@@ -37,6 +43,7 @@ model Kelas {
   name        String
   semester    Int
   tahunAjaran String
+  startDate   DateTime? // NEW: Semester start date for dynamic progress calculations
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
@@ -48,6 +55,10 @@ model Kelas {
   // Group and Tugas relations
   kelompoks     Kelompok[]
   tugas         Tugas[]
+
+  // NEW: Relations for new features
+  roisFanSubjects   RoisFanSubject[]
+  presentasiJadwals PresentasiJadwal[]
 }
 
 // Class membership with roles
@@ -55,7 +66,7 @@ model ClassMember {
   id        String   @id @default(cuid())
   kelasId   String
   userId    String
-  role      String   @default("MAHASANTRI") // MAHASANTRI, ROIS_AM, KETUA_FAN_ILMU, KETUA_KELOMPOK, SEKRETARIS, BENDAHARA
+  role      String   @default("MAHASANTRI") // MAHASANTRI, ROIS_AM, DOIS_AM, KETUA_FAN_ILMU, KETUA_KELOMPOK, SEKRETARIS, BENDAHARA
   createdAt DateTime @default(now())
 
   kelas Kelas @relation(fields: [kelasId], references: [id], onDelete: Cascade)
@@ -66,20 +77,24 @@ model ClassMember {
 
 // Courses / Mata Kuliah
 model MataKuliah {
-  id               String   @id @default(cuid())
-  code             String
-  name             String
-  sks              Int      @default(2)
-  semester         Int
-  programStudi     String   @default("")
-  standarKompetensi String  @default("")
-  deskripsi        String   @default("")
-  createdAt        DateTime @default(now())
-  updatedAt        DateTime @updatedAt
+  id                String   @id @default(cuid())
+  code              String
+  name              String
+  sks               Int      @default(2)
+  semester          Int
+  programStudi      String   @default("")
+  standarKompetensi String   @default("")
+  deskripsi         String   @default("")
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
 
   syllabus  Silabus[]
   schedules Jadwal[]
   tugas     Tugas[]
+
+  // NEW: Relations for new features
+  roisFanSubjects   RoisFanSubject[]
+  presentasiJadwals PresentasiJadwal[]
 }
 
 // Syllabus items
@@ -191,6 +206,7 @@ model Kelompok {
   members   KelompokMember[]
   targets   HafalanTarget[]
   tasks     TugasDistribution[]
+  tugas     Tugas[]
 }
 
 // Anggota Kelompok
@@ -220,7 +236,7 @@ model HafalanTarget {
   logs          HafalanLog[]
 }
 
-// Log kehadiran / setoran hafalan diisi oleh Ketua Kelompok (dinamis, tanpa perlu target dari Rois A'm)
+// Log kehadiran / setoran hafalan diisi oleh Ketua Kelompok
 model HafalanLog {
   id               String   @id @default(cuid())
   kelompokMemberId String
@@ -248,10 +264,17 @@ model Tugas {
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 
+  targetType       String   @default("KELAS") // KELAS, KELOMPOK, INDIVIDU
+  targetKelompokId String?
+  targetUserId     String?
+
   kelas      Kelas      @relation(fields: [kelasId], references: [id], onDelete: Cascade)
   mataKuliah MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
   creator    User       @relation(fields: [creatorId], references: [id], onDelete: Cascade)
   distributions TugasDistribution[]
+
+  targetKelompok   Kelompok? @relation(fields: [targetKelompokId], references: [id], onDelete: SetNull)
+  targetUser       User?     @relation("TugasTargetUser", fields: [targetUserId], references: [id], onDelete: SetNull)
 }
 
 // Distribusi detail tugas ke masing-masing anggota oleh Ketua Kelompok
@@ -271,4 +294,49 @@ model TugasDistribution {
   user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 
   @@unique([tugasId, kelompokId, userId])
+}
+
+// NEW: Model untuk spesifikasi role Rois Fan per Mata Kuliah
+model RoisFanSubject {
+  id           String     @id @default(cuid())
+  kelasId      String
+  userId       String
+  mataKuliahId String
+  createdAt    DateTime   @default(now())
+
+  kelas        Kelas      @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+  mataKuliah   MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+
+  @@unique([kelasId, userId, mataKuliahId])
+}
+
+// NEW: Model untuk Jadwal Presentasi / Menerangkan Kitab
+model PresentasiJadwal {
+  id           String     @id @default(cuid())
+  kelasId      String
+  mataKuliahId String
+  pertemuan    Int        // Pertemuan ke-berapa (1-16)
+  userId       String     // Mahasantri yang bertugas menerangkan
+  tanggal      DateTime
+  materi       String     @default("")
+  createdAt    DateTime   @default(now())
+  updatedAt    DateTime   @updatedAt
+
+  kelas        Kelas      @relation(fields: [kelasId], references: [id], onDelete: Cascade)
+  mataKuliah   MataKuliah @relation(fields: [mataKuliahId], references: [id], onDelete: Cascade)
+  user         User       @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([kelasId, mataKuliahId, pertemuan])
+}
+
+// NEW: Model untuk Permohonan Reset Password
+model ResetPasswordRequest {
+  id        String   @id @default(cuid())
+  userId    String
+  status    String   @default("PENDING") // PENDING, APPROVED, REJECTED
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
 }

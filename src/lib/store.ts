@@ -51,6 +51,7 @@ export type PageView =
   | 'admin-pengumuman'
   | 'pengumuman'
   | 'ketua-capaian'
+  | 'profile'
 
 interface AppState {
   user: User | null

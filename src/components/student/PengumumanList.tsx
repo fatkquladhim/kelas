@@ -3,10 +3,20 @@
 import { useEffect, useState, useCallback } from 'react'
 import { Card, CardContent } from '@/components/ui/card'
 import { Badge } from '@/components/ui/badge'
+import { Button } from '@/components/ui/button'
 import { Skeleton } from '@/components/ui/skeleton'
-import { Bell, Pin, ChevronDown, ChevronUp } from 'lucide-react'
+import {
+  Dialog,
+  DialogContent,
+  DialogHeader,
+  DialogTitle,
+  DialogDescription,
+} from '@/components/ui/dialog'
+import { Bell, Pin, ChevronDown, ChevronUp, Plus } from 'lucide-react'
 import { EmptyState } from '@/components/shared/EmptyState'
+import { PengumumanForm, type PengumumanFormData } from '@/components/shared/PengumumanForm'
 import { useAppStore } from '@/lib/store'
+import { toast } from 'sonner'
 
 interface Author {
   id: string
@@ -52,10 +62,18 @@ function formatDate(dateStr: string): string {
 }
 
 export function PengumumanList() {
-  const { selectedKelas } = useAppStore()
+  const { user, selectedKelas, classMembers } = useAppStore()
   const [pengumuman, setPengumuman] = useState<PengumumanItem[]>([])
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
+  const [createOpen, setCreateOpen] = useState(false)
+  const [creating, setCreating] = useState(false)
+
+  const canPost =
+    user?.role === 'ADMIN' ||
+    classMembers.some(
+      m => m.userId === user?.id && (m.role === 'ROIS_AM' || m.role === 'KETUA_FAN_ILMU')
+    )
 
   const fetchPengumuman = useCallback(async () => {
     try {
@@ -79,6 +97,33 @@ export function PengumumanList() {
     fetchPengumuman()
   }, [fetchPengumuman])
 
+  const handleCreate = async (data: PengumumanFormData) => {
+    setCreating(true)
+    try {
+      const body: any = { ...data }
+      if (!canPost || user?.role !== 'ADMIN') {
+        body.kelasId = selectedKelas?.id || ''
+      }
+      const res = await fetch('/api/pengumuman', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+      if (res.ok) {
+        toast.success('Pengumuman berhasil dibuat')
+        setCreateOpen(false)
+        fetchPengumuman()
+      } else {
+        const err = await res.json()
+        toast.error(err.error || 'Gagal membuat pengumuman')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan')
+    } finally {
+      setCreating(false)
+    }
+  }
+
   const pinnedItems = pengumuman.filter((p) => p.isPinned)
   const regularItems = pengumuman.filter((p) => !p.isPinned)
 
@@ -88,13 +133,24 @@ export function PengumumanList() {
 
   return (
     <div className="space-y-6">
-      {/* Info */}
-      {selectedKelas && (
-        <p className="text-sm text-slate-500">
-          Menampilkan pengumuman untuk kelas{' '}
-          <span className="font-medium text-slate-700">{selectedKelas.name}</span> dan pengumuman umum
-        </p>
-      )}
+      {/* Info & Create Button */}
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+        {selectedKelas && (
+          <p className="text-sm text-slate-500">
+            Menampilkan pengumuman untuk kelas{' '}
+            <span className="font-medium text-slate-700">{selectedKelas.name}</span> dan pengumuman umum
+          </p>
+        )}
+        {canPost && (
+          <Button
+            className="bg-emerald-600 hover:bg-emerald-700 text-white shrink-0"
+            onClick={() => setCreateOpen(true)}
+          >
+            <Plus className="h-4 w-4 mr-2" />
+            Tulis Pengumuman
+          </Button>
+        )}
+      </div>
 
       {/* Content */}
       {loading ? (
@@ -149,6 +205,30 @@ export function PengumumanList() {
           )}
         </div>
       )}
+
+      {/* Create Dialog */}
+      <Dialog open={createOpen} onOpenChange={setCreateOpen}>
+        <DialogContent className="sm:max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Buat Pengumuman Baru</DialogTitle>
+            <DialogDescription>
+              {user?.role === 'ADMIN'
+                ? 'Admin dapat membuat pengumuman untuk semua kelas atau kelas tertentu'
+                : 'Pengumuman akan dikhususkan untuk kelas Anda saat ini'}
+            </DialogDescription>
+          </DialogHeader>
+          <PengumumanForm
+            initialData={
+              user?.role !== 'ADMIN' && selectedKelas
+                ? { title: '', content: '', category: 'UMUM', kelasId: selectedKelas.id, isPinned: false }
+                : undefined
+            }
+            onSubmit={handleCreate}
+            onCancel={() => setCreateOpen(false)}
+            loading={creating}
+          />
+        </DialogContent>
+      </Dialog>
     </div>
   )
 }

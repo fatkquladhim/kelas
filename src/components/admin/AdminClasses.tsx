@@ -23,7 +23,7 @@ import {
   TableHeader,
   TableRow,
 } from '@/components/ui/table'
-import { Plus, Users, Trash2, Edit, Loader2, Eye } from 'lucide-react'
+import { Plus, Users, Trash2, Edit, Loader2, Eye, ArrowUpCircle, Calendar } from 'lucide-react'
 import { toast } from 'sonner'
 import { EmptyState } from '@/components/shared/EmptyState'
 import { useAppStore } from '@/lib/store'
@@ -33,6 +33,7 @@ interface Kelas {
   name: string
   semester: number
   tahunAjaran: string
+  startDate: string | null
   _count: { members: number; schedules: number; pertemuanLogs: number }
   createdAt: string
 }
@@ -64,7 +65,13 @@ export function AdminClasses() {
   const [editName, setEditName] = useState('')
   const [editSemester, setEditSemester] = useState('')
   const [editTahunAjaran, setEditTahunAjaran] = useState('')
+  const [editStartDate, setEditStartDate] = useState('')
   const [editing, setEditing] = useState(false)
+
+  // Promote dialog
+  const [promoteOpen, setPromoteOpen] = useState(false)
+  const [promoteClass, setPromoteClass] = useState<Kelas | null>(null)
+  const [promoting, setPromoting] = useState(false)
 
   // Members dialog
   const [membersOpen, setMembersOpen] = useState(false)
@@ -134,7 +141,7 @@ export function AdminClasses() {
       const res = await fetch(`/api/admin/kelas/${editClass.id}`, {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ name: editName, semester: Number(editSemester), tahunAjaran: editTahunAjaran }),
+        body: JSON.stringify({ name: editName, semester: Number(editSemester), tahunAjaran: editTahunAjaran, startDate: editStartDate || null }),
       })
       if (res.ok) {
         toast.success('Kelas berhasil diperbarui')
@@ -313,11 +320,16 @@ export function AdminClasses() {
           {classes.map((kelas) => (
             <Card key={kelas.id} className="border-0 shadow-sm hover:shadow-md transition-shadow">
               <CardHeader className="pb-2">
-                <div className="flex items-start justify-between">
-                  <div>
-                    <CardTitle className="text-base">{kelas.name}</CardTitle>
-                    <p className="text-xs text-slate-500 mt-1">Semester {kelas.semester} • {kelas.tahunAjaran}</p>
-                  </div>
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <CardTitle className="text-base">{kelas.name}</CardTitle>
+                      <p className="text-xs text-slate-500 mt-1">Semester {kelas.semester} • {kelas.tahunAjaran}</p>
+                      {kelas.startDate && (
+                        <p className="text-[10px] text-slate-400 mt-0.5">
+                          Mulai: {new Date(kelas.startDate).toLocaleDateString('id-ID', { day: 'numeric', month: 'short', year: 'numeric' })}
+                        </p>
+                      )}
+                    </div>
                   <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-xs">Aktif</Badge>
                 </div>
               </CardHeader>
@@ -331,11 +343,18 @@ export function AdminClasses() {
                     <Users className="h-3 w-3 mr-1" />
                     Anggota
                   </Button>
+                  <Button size="sm" variant="outline" className="text-emerald-600" onClick={() => {
+                    setPromoteClass(kelas)
+                    setPromoteOpen(true)
+                  }}>
+                    <ArrowUpCircle className="h-3 w-3" />
+                  </Button>
                   <Button size="sm" variant="outline" onClick={() => {
                     setEditClass(kelas)
                     setEditName(kelas.name)
                     setEditSemester(String(kelas.semester))
                     setEditTahunAjaran(kelas.tahunAjaran)
+                    setEditStartDate(kelas.startDate ? kelas.startDate.split('T')[0] : '')
                     setEditOpen(true)
                   }}>
                     <Edit className="h-3 w-3" />
@@ -361,17 +380,22 @@ export function AdminClasses() {
               <label className="text-sm font-medium">Nama Kelas</label>
               <Input value={editName} onChange={(e) => setEditName(e.target.value)} />
             </div>
-            <div className="grid grid-cols-2 gap-4">
-              <div className="space-y-2">
-                <label className="text-sm font-medium">Semester</label>
-                <Input type="number" value={editSemester} onChange={(e) => setEditSemester(e.target.value)} />
+              <div className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Semester</label>
+                  <Input type="number" value={editSemester} onChange={(e) => setEditSemester(e.target.value)} />
+                </div>
+                <div className="space-y-2">
+                  <label className="text-sm font-medium">Tahun Ajaran</label>
+                  <Input value={editTahunAjaran} onChange={(e) => setEditTahunAjaran(e.target.value)} />
+                </div>
               </div>
               <div className="space-y-2">
-                <label className="text-sm font-medium">Tahun Ajaran</label>
-                <Input value={editTahunAjaran} onChange={(e) => setEditTahunAjaran(e.target.value)} />
+                <label className="text-sm font-medium">Tanggal Mulai Semester</label>
+                <Input type="date" value={editStartDate} onChange={(e) => setEditStartDate(e.target.value)} />
+                <p className="text-xs text-slate-400">Digunakan untuk kalkulasi progres target pertemuan</p>
               </div>
             </div>
-          </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setEditOpen(false)}>Batal</Button>
             <Button className="bg-emerald-600 hover:bg-emerald-700 text-white" onClick={handleEdit} disabled={editing}>
@@ -415,6 +439,76 @@ export function AdminClasses() {
               ))}
             </div>
           )}
+        </DialogContent>
+      </Dialog>
+
+      {/* Promote Semester Dialog */}
+      <Dialog open={promoteOpen} onOpenChange={setPromoteOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Naik Semester</DialogTitle>
+            <DialogDescription>
+              Kelas {promoteClass?.name} akan dinaikkan ke semester {(promoteClass?.semester || 0) + 1}
+            </DialogDescription>
+          </DialogHeader>
+          <div className="py-4 space-y-3">
+            <div className="rounded-lg bg-amber-50 border border-amber-100 p-3">
+              <p className="text-sm text-amber-800">
+                Semester saat ini: <strong>{promoteClass?.semester}</strong>
+              </p>
+              <p className="text-sm text-amber-800">
+                Semester baru: <strong>{(promoteClass?.semester || 0) + 1}</strong>
+              </p>
+              {(promoteClass?.semester || 0) % 2 === 0 && (
+                <p className="text-xs text-amber-600 mt-1">
+                  Tahun Ajaran akan diperbarui secara otomatis
+                </p>
+              )}
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setPromoteOpen(false)}>Batal</Button>
+            <Button
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+              disabled={promoting}
+              onClick={async () => {
+                if (!promoteClass) return
+                setPromoting(true)
+                try {
+                  const newSemester = promoteClass.semester + 1
+                  let newTahunAjaran = promoteClass.tahunAjaran
+                  if (promoteClass.semester % 2 === 0) {
+                    const years = promoteClass.tahunAjaran.split('/')
+                    if (years.length === 2) {
+                      const nextStart = parseInt(years[0]) + 1
+                      const nextEnd = parseInt(years[1]) + 1
+                      newTahunAjaran = `${nextStart}/${nextEnd}`
+                    }
+                  }
+                  const res = await fetch(`/api/admin/kelas/${promoteClass.id}`, {
+                    method: 'PATCH',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ semester: newSemester, tahunAjaran: newTahunAjaran }),
+                  })
+                  if (res.ok) {
+                    toast.success(`Kelas ${promoteClass.name} naik ke semester ${newSemester}`)
+                    setPromoteOpen(false)
+                    fetchClasses()
+                  } else {
+                    const data = await res.json()
+                    toast.error(data.error || 'Gagal menaikkan semester')
+                  }
+                } catch {
+                  toast.error('Terjadi kesalahan')
+                } finally {
+                  setPromoting(false)
+                }
+              }}
+            >
+              {promoting && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              Naikkan Semester
+            </Button>
+          </DialogFooter>
         </DialogContent>
       </Dialog>
 

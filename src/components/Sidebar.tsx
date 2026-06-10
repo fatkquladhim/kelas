@@ -22,6 +22,7 @@ import {
   UserCheck,
   Bell,
   ClipboardCheck,
+  User,
 } from 'lucide-react'
 import type { MemberRole } from '@/lib/store'
 
@@ -99,6 +100,7 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
       navItems.push({ label: 'Capaian Materi', page: 'ketua-capaian', icon: ClipboardCheck })
     }
   }
+  navItems.push({ label: 'Profil Saya', page: 'profile', icon: User })
 
   const handleLogout = async () => {
     try {
