@@ -83,8 +83,6 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
     { label: 'Pengumuman', page: 'pengumuman', icon: Bell },
   ]
 
-  const myRole = getMyRole()
-
   let navItems: NavItem[] = []
 
   if (isAdmin()) {
