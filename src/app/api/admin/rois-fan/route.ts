@@ -1,18 +1,39 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { db } from '@/lib/db'
-import { requireAdmin } from '@/lib/auth'
+import { requireAuth } from '@/lib/auth'
+
+async function authorizeRoisManagement(request: NextRequest, kelasId?: string) {
+  const auth = await requireAuth(request)
+  if (auth instanceof Response) return auth
+
+  const user = await db.user.findUnique({ where: { id: auth.userId } })
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
+  // Admin can manage all
+  if (user.role === 'ADMIN') return auth
+
+  // Rois Am can manage for their own class
+  if (kelasId) {
+    const member = await db.classMember.findUnique({
+      where: { kelasId_userId: { kelasId, userId: auth.userId } },
+    })
+    if (member && member.role === 'ROIS_AM') return auth
+  }
+
+  return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+}
 
 export async function GET(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
-    if (auth instanceof Response) return auth
-
     const { searchParams } = new URL(request.url)
     const kelasId = searchParams.get('kelasId')
 
     if (!kelasId) {
       return NextResponse.json({ error: 'kelasId is required' }, { status: 400 })
     }
+
+    const auth = await authorizeRoisManagement(request, kelasId)
+    if (auth instanceof Response) return auth
 
     const assignments = await db.roisFanSubject.findMany({
       where: { kelasId },
@@ -39,9 +60,6 @@ export async function GET(request: NextRequest) {
 
 export async function POST(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
-    if (auth instanceof Response) return auth
-
     const body = await request.json()
     const { kelasId, userId, mataKuliahId } = body
 
@@ -51,6 +69,9 @@ export async function POST(request: NextRequest) {
         { status: 400 }
       )
     }
+
+    const auth = await authorizeRoisManagement(request, kelasId)
+    if (auth instanceof Response) return auth
 
     // Check if member is in class
     const member = await db.classMember.findUnique({
@@ -79,7 +100,6 @@ export async function POST(request: NextRequest) {
     return NextResponse.json({ assignment }, { status: 201 })
   } catch (error) {
     console.error('Create Rois Fan assignment error:', error)
-    // Handle unique constraint
     const err = error as any
     if (err.code === 'P2002') {
       return NextResponse.json(
@@ -96,9 +116,6 @@ export async function POST(request: NextRequest) {
 
 export async function DELETE(request: NextRequest) {
   try {
-    const auth = await requireAdmin(request)
-    if (auth instanceof Response) return auth
-
     const { searchParams } = new URL(request.url)
     const id = searchParams.get('id')
 
@@ -113,19 +130,12 @@ export async function DELETE(request: NextRequest) {
       return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
     }
 
-    const { kelasId, userId } = assignment
+    const auth = await authorizeRoisManagement(request, assignment.kelasId)
+    if (auth instanceof Response) return auth
 
-    // Delete assignment
     await db.roisFanSubject.delete({
       where: { id },
     })
-
-    // Check if user still has other Rois Fan assignments in this class
-    const otherAssignments = await db.roisFanSubject.count({
-      where: { kelasId, userId },
-    })
-
-    // Role is derived from RoisFanSubject existence, no need to update ClassMember
 
     return NextResponse.json({ message: 'Assignment deleted successfully' })
   } catch (error) {
