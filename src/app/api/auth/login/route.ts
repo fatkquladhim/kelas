@@ -47,6 +47,12 @@ export async function POST(request: NextRequest) {
         email: user.email,
         role: user.role,
         isActive: user.isActive,
+        nis: user.nis,
+        phone: user.phone,
+        tempatLahir: user.tempatLahir,
+        tanggalLahir: user.tanggalLahir,
+        alamat: user.alamat,
+        imageUrl: user.imageUrl,
       },
     })
 

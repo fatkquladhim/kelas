@@ -59,7 +59,7 @@ interface SidebarContentProps {
 }
 
 export function SidebarContent({ onClose }: SidebarContentProps) {
-  const { user, currentPage, setCurrentPage, logout, isAdmin, isRoisAm, isKetuaFanIlmu, getMyRole, selectedKelas } = useAppStore()
+  const { user, currentPage, setCurrentPage, logout, isAdmin, isRoisAm, isKetuaFanIlmu, getMyRoles, selectedKelas } = useAppStore()
 
   const adminNavItems: NavItem[] = [
     { label: 'Dashboard', page: 'admin-dashboard', icon: LayoutDashboard },
@@ -199,17 +199,17 @@ export function SidebarContent({ onClose }: SidebarContentProps) {
           </Avatar>
           <div className="flex-1 min-w-0">
             <p className="text-sm font-medium truncate">{user?.name}</p>
-            <div className="flex items-center gap-1.5 mt-0.5">
+            <div className="flex flex-wrap items-center gap-1 mt-0.5">
               {isAdmin() ? (
                 <span className="inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold bg-red-500/20 text-red-300 border border-red-500/30">
                   Admin
                 </span>
-              ) : myRole ? (
-                <span className={cn('inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold', getRoleBadgeColor(myRole))}>
-                  {getRoleLabel(myRole)}
-                </span>
               ) : (
-                <span className="text-[10px] text-slate-500">Mahasantri</span>
+                getMyRoles().map((role, i) => (
+                  <span key={i} className={cn('inline-flex items-center rounded-md px-1.5 py-0.5 text-[10px] font-semibold', getRoleBadgeColor(role))}>
+                    {getRoleLabel(role)}
+                  </span>
+                ))
               )}
             </div>
           </div>

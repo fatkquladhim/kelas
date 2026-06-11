@@ -9,14 +9,20 @@ datasource db {
 
 // Users of the system
 model User {
-  id        String   @id @default(cuid())
-  name      String
-  email     String   @unique
-  password  String
-  role      String   @default("MAHASANTRI") // ADMIN, MAHASANTRI
-  isActive  Boolean  @default(false) // Admin must confirm registration
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id          String   @id @default(cuid())
+  name        String
+  email       String   @unique
+  password    String
+  role        String   @default("MAHASANTRI") // ADMIN, MAHASANTRI
+  isActive    Boolean  @default(false) // Admin must confirm registration
+  nis         String   @default("")
+  phone       String   @default("")
+  tempatLahir String   @default("")
+  tanggalLahir DateTime?
+  alamat      String   @default("")
+  imageUrl    String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
 
   classMemberships     ClassMember[]
   materialAchievements MaterialAchievement[]

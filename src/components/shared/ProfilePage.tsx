@@ -4,15 +4,30 @@ import { useState, useEffect } from 'react'
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
+import { Textarea } from '@/components/ui/textarea'
 import { Label } from '@/components/ui/label'
 import { Badge } from '@/components/ui/badge'
 import { Separator } from '@/components/ui/separator'
+import { Avatar, AvatarFallback, AvatarImage } from '@/components/ui/avatar'
 import { useAppStore } from '@/lib/store'
-import { BookOpen, User, Shield, Lock, Eye, EyeOff, Loader2, CheckCircle2, XCircle } from 'lucide-react'
+import {
+  BookOpen, User, Shield, Lock, Eye, EyeOff, Loader2,
+  CheckCircle2, XCircle, Camera, Save, Phone, MapPin,
+  CalendarDays, GraduationCap, Hash
+} from 'lucide-react'
 import { toast } from 'sonner'
 
 export function ProfilePage() {
-  const { user, classMembers, allClasses } = useAppStore()
+  const { user, classMembers, allClasses, setUser } = useAppStore()
+
+  const [name, setName] = useState(user?.name || '')
+  const [nis, setNis] = useState(user?.nis || '')
+  const [phone, setPhone] = useState(user?.phone || '')
+  const [tempatLahir, setTempatLahir] = useState(user?.tempatLahir || '')
+  const [tanggalLahir, setTanggalLahir] = useState(user?.tanggalLahir ? user.tanggalLahir.split('T')[0] : '')
+  const [alamat, setAlamat] = useState(user?.alamat || '')
+  const [imageUrl, setImageUrl] = useState(user?.imageUrl || '')
+  const [saving, setSaving] = useState(false)
 
   const [currentPassword, setCurrentPassword] = useState('')
   const [newPassword, setNewPassword] = useState('')
@@ -21,6 +36,7 @@ export function ProfilePage() {
   const [showNew, setShowNew] = useState(false)
   const [showConfirm, setShowConfirm] = useState(false)
   const [changing, setChanging] = useState(false)
+
   const [roisFanSubjects, setRoisFanSubjects] = useState<any[]>([])
 
   const passwordStrength = (pass: string): { label: string; color: string; score: number } => {
@@ -34,6 +50,32 @@ export function ProfilePage() {
     if (score <= 2) return { label: 'Lemah', color: 'bg-red-500', score }
     if (score <= 4) return { label: 'Sedang', color: 'bg-amber-500', score }
     return { label: 'Kuat', color: 'bg-emerald-500', score }
+  }
+
+  const handleSaveBiodata = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch('/api/auth/profile', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          name, nis, phone, tempatLahir,
+          tanggalLahir: tanggalLahir || null,
+          alamat, imageUrl,
+        }),
+      })
+      const data = await res.json()
+      if (res.ok) {
+        setUser({ ...user!, ...data.user })
+        toast.success('Biodata berhasil disimpan')
+      } else {
+        toast.error(data.error || 'Gagal menyimpan')
+      }
+    } catch {
+      toast.error('Terjadi kesalahan')
+    } finally {
+      setSaving(false)
+    }
   }
 
   const handleChangePassword = async (e: React.FormEvent) => {
@@ -92,6 +134,19 @@ export function ProfilePage() {
     fetchAllRoisFan()
   }, [user, classMembers])
 
+  // Re-sync form when user data changes (e.g. after save)
+  useEffect(() => {
+    if (user) {
+      setName(user.name || '')
+      setNis(user.nis || '')
+      setPhone(user.phone || '')
+      setTempatLahir(user.tempatLahir || '')
+      setTanggalLahir(user.tanggalLahir ? user.tanggalLahir.split('T')[0] : '')
+      setAlamat(user.alamat || '')
+      setImageUrl(user.imageUrl || '')
+    }
+  }, [user])
+
   const myClasses = classMembers
     .filter(m => m.userId === user?.id)
     .map(m => ({
@@ -101,46 +156,109 @@ export function ProfilePage() {
 
   const strength = newPassword ? passwordStrength(newPassword) : null
 
+  const handlePhotoUpload = () => {
+    const url = prompt('Masukkan URL foto profil:')
+    if (url) {
+      setImageUrl(url)
+    }
+  }
+
   return (
     <div className="max-w-3xl mx-auto space-y-6">
-      <Card className="border-0 shadow-sm">
-        <CardHeader className="pb-3">
-          <div className="flex items-center gap-3">
-            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-gradient-to-br from-emerald-500 to-teal-600 shadow-sm">
-              <User className="h-6 w-6 text-white" />
+      {/* Profile Header with Photo */}
+      <Card className="border-0 shadow-sm overflow-hidden">
+        <div className="h-24 bg-gradient-to-r from-emerald-600 to-teal-600" />
+        <CardContent className="relative px-6 pb-6">
+          <div className="flex flex-col sm:flex-row items-start sm:items-end gap-4 -mt-14">
+            <div className="relative group">
+              <Avatar className="h-28 w-28 ring-4 ring-white shadow-xl">
+                <AvatarImage src={imageUrl || undefined} />
+                <AvatarFallback className="bg-gradient-to-br from-emerald-500 to-teal-600 text-white text-3xl font-bold">
+                  {user?.name?.charAt(0)?.toUpperCase() || 'U'}
+                </AvatarFallback>
+              </Avatar>
+              <button
+                onClick={handlePhotoUpload}
+                className="absolute bottom-1 right-1 h-8 w-8 rounded-full bg-emerald-600 text-white flex items-center justify-center shadow-lg hover:bg-emerald-700 transition-colors opacity-0 group-hover:opacity-100"
+              >
+                <Camera className="h-4 w-4" />
+              </button>
             </div>
-            <div>
-              <CardTitle className="text-lg">Profil Saya</CardTitle>
-              <p className="text-sm text-slate-500">Informasi biodata akun Anda</p>
-            </div>
-          </div>
-        </CardHeader>
-        <CardContent className="space-y-5">
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Nama Lengkap</Label>
-              <p className="text-sm font-medium text-slate-800">{user?.name}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Email</Label>
-              <p className="text-sm font-medium text-slate-800">{user?.email}</p>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Role Sistem</Label>
-              <Badge variant="secondary" className={user?.role === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}>
-                {user?.role === 'ADMIN' ? 'Admin' : 'Mahasantri'}
-              </Badge>
-            </div>
-            <div className="space-y-1">
-              <Label className="text-xs text-slate-500">Status</Label>
-              <Badge variant="secondary" className={user?.isActive ? 'bg-emerald-100 text-emerald-700' : 'bg-amber-100 text-amber-700'}>
-                {user?.isActive ? 'Aktif' : 'Belum Aktif'}
-              </Badge>
+            <div className="flex-1 min-w-0 pt-2 sm:pt-0">
+              <h2 className="text-xl font-bold text-slate-800">{user?.name}</h2>
+              <p className="text-sm text-slate-500">{user?.email}</p>
+              <div className="flex flex-wrap gap-1.5 mt-1.5">
+                <Badge variant="secondary" className={user?.role === 'ADMIN' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-700'}>
+                  {user?.role === 'ADMIN' ? 'Admin' : 'Mahasantri'}
+                </Badge>
+                {user?.isActive && (
+                  <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">Aktif</Badge>
+                )}
+              </div>
             </div>
           </div>
         </CardContent>
       </Card>
 
+      {/* Biodata Form */}
+      <Card className="border-0 shadow-sm">
+        <CardHeader className="pb-3">
+          <div className="flex items-center gap-3">
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-50">
+              <User className="h-5 w-5 text-emerald-600" />
+            </div>
+            <div>
+              <CardTitle className="text-base">Biodata Diri</CardTitle>
+              <p className="text-xs text-slate-500">Lengkapi informasi biodata Anda</p>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Nama Lengkap</Label>
+              <Input value={name} onChange={e => setName(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">NIS / NIM</Label>
+              <Input value={nis} onChange={e => setNis(e.target.value)} placeholder="Nomor Induk Santri" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">No. Telepon</Label>
+              <Input value={phone} onChange={e => setPhone(e.target.value)} placeholder="08xxx" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Tempat Lahir</Label>
+              <Input value={tempatLahir} onChange={e => setTempatLahir(e.target.value)} placeholder="Kota" />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Tanggal Lahir</Label>
+              <Input type="date" value={tanggalLahir} onChange={e => setTanggalLahir(e.target.value)} />
+            </div>
+            <div className="space-y-1.5">
+              <Label className="text-sm font-medium">Foto (URL)</Label>
+              <Input value={imageUrl} onChange={e => setImageUrl(e.target.value)} placeholder="https://..." />
+            </div>
+            <div className="space-y-1.5 sm:col-span-2">
+              <Label className="text-sm font-medium">Alamat</Label>
+              <Textarea value={alamat} onChange={e => setAlamat(e.target.value)} rows={2} placeholder="Alamat lengkap" />
+            </div>
+          </div>
+          <div className="flex justify-end mt-4">
+            <Button
+              onClick={handleSaveBiodata}
+              disabled={saving}
+              className="bg-emerald-600 hover:bg-emerald-700 text-white"
+            >
+              {saving && <Loader2 className="h-4 w-4 mr-2 animate-spin" />}
+              <Save className="h-4 w-4 mr-2" />
+              Simpan Biodata
+            </Button>
+          </div>
+        </CardContent>
+      </Card>
+
+      {/* Kelas & Roles */}
       {myClasses.length > 0 && (
         <Card className="border-0 shadow-sm">
           <CardHeader className="pb-3">
@@ -163,14 +281,19 @@ export function ProfilePage() {
                       <p className="text-sm font-medium text-slate-800">{m.className}</p>
                       <p className="text-xs text-slate-500">Semester {allClasses.find(c => c.id === m.kelasId)?.semester}</p>
                     </div>
-                    <Badge variant="secondary" className="bg-emerald-100 text-emerald-700">
-                      {m.role === 'KETUA_FAN_ILMU' ? 'Rois Fan' : m.role}
-                    </Badge>
+                    <div className="flex gap-1">
+                      {m.role !== 'MAHASANTRI' && (
+                        <Badge variant="secondary" className="bg-emerald-100 text-emerald-700 text-[10px]">
+                          {m.role === 'KETUA_FAN_ILMU' ? 'Rois Fan' : m.role}
+                        </Badge>
+                      )}
+                    </div>
                   </div>
+                  {/* Check if user is also a Ketua Kelompok (via kelompok leader) */}
                   {m.role === 'KETUA_KELOMPOK' && (
-                    <p className="text-xs text-purple-600 font-medium">
-                      Ketua Kelompok di kelas ini
-                    </p>
+                    <Badge variant="secondary" className="bg-purple-100 text-purple-700 text-[10px]">
+                      Ketua Kelompok
+                    </Badge>
                   )}
                   {subjectAssignments.length > 0 && (
                     <div className="flex flex-wrap gap-1.5">
@@ -188,6 +311,7 @@ export function ProfilePage() {
         </Card>
       )}
 
+      {/* Change Password */}
       <Card className="border-0 shadow-sm">
         <CardHeader className="pb-3">
           <div className="flex items-center gap-3">

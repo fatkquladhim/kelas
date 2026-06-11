@@ -92,18 +92,7 @@ export async function POST(request: NextRequest) {
         },
       })
 
-      // Update the class membership role of the leader to KETUA_KELOMPOK if it was MAHASANTRI
-      if (userId === leaderId) {
-        const classLeaderMember = await db.classMember.findUnique({
-          where: { kelasId_userId: { kelasId, userId } },
-        })
-        if (classLeaderMember && classLeaderMember.role === 'MAHASANTRI') {
-          await db.classMember.update({
-            where: { id: classLeaderMember.id },
-            data: { role: 'KETUA_KELOMPOK' },
-          })
-        }
-      }
+      // Role KETUA_KELOMPOK is derived from Kelompok.leaderId, no need to update ClassMember
     }
 
     // Fetch the created group with details

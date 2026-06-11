@@ -10,6 +10,12 @@ export interface User {
   email: string
   role: UserRole
   isActive: boolean
+  nis?: string
+  phone?: string
+  tempatLahir?: string
+  tanggalLahir?: string | null
+  alamat?: string
+  imageUrl?: string
 }
 
 export interface ClassInfo {
@@ -17,6 +23,7 @@ export interface ClassInfo {
   name: string
   semester: number
   tahunAjaran: string
+  startDate?: string | null
 }
 
 export interface ClassMemberInfo {
@@ -76,6 +83,7 @@ interface AppState {
   isKetuaFanIlmu: () => boolean
   isKetuaKelompok: () => boolean
   getMyRole: () => MemberRole | null
+  getMyRoles: () => MemberRole[]  // Returns ALL roles
 }
 
 export const useAppStore = create<AppState>()(
@@ -166,6 +174,20 @@ export const useAppStore = create<AppState>()(
         const state = get()
         const member = state.classMembers.find(m => m.userId === state.user?.id)
         return member ? member.role : null
+      },
+      getMyRoles: () => {
+        const state = get()
+        const userId = state.user?.id
+        if (!userId) return []
+        const roles: MemberRole[] = []
+        const found = state.classMembers.filter(m => m.userId === userId)
+        for (const m of found) {
+          if (m.role !== 'MAHASANTRI' && !roles.includes(m.role)) {
+            roles.push(m.role)
+          }
+        }
+        if (roles.length === 0) roles.push('MAHASANTRI')
+        return roles
       },
     }),
     {

@@ -76,14 +76,6 @@ export async function POST(request: NextRequest) {
       },
     })
 
-    // Update member's role to KETUA_FAN_ILMU if currently MAHASANTRI
-    if (member.role === 'MAHASANTRI') {
-      await db.classMember.update({
-        where: { id: member.id },
-        data: { role: 'KETUA_FAN_ILMU' },
-      })
-    }
-
     return NextResponse.json({ assignment }, { status: 201 })
   } catch (error) {
     console.error('Create Rois Fan assignment error:', error)
@@ -133,18 +125,7 @@ export async function DELETE(request: NextRequest) {
       where: { kelasId, userId },
     })
 
-    if (otherAssignments === 0) {
-      // Demote role to MAHASANTRI if it was KETUA_FAN_ILMU
-      const member = await db.classMember.findUnique({
-        where: { kelasId_userId: { kelasId, userId } },
-      })
-      if (member && member.role === 'KETUA_FAN_ILMU') {
-        await db.classMember.update({
-          where: { id: member.id },
-          data: { role: 'MAHASANTRI' },
-        })
-      }
-    }
+    // Role is derived from RoisFanSubject existence, no need to update ClassMember
 
     return NextResponse.json({ message: 'Assignment deleted successfully' })
   } catch (error) {
